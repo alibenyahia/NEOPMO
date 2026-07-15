@@ -1458,7 +1458,7 @@ body.light-theme .training-calendar-day {
 }
 
 .training-session-chip {
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    background: #2D8FAC;
     color: white;
     font-size: 0.66rem;
     font-weight: 600;
