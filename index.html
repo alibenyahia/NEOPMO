@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEOPMO</title>
+    <meta name="description" content="Tableau de bord et outil de suivi de projets pour PMO permettant de mettre à jour et de suivre les indicateurs hebdomadaires.">
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js for beautiful dashboards -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (xlsx) for importing Excel files -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Lucide Icons for clean, modern icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Supabase (base de données partagée) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <!-- Overlay de chargement affiché pendant la récupération des données (Supabase ou local) -->
+    <div id="app-loading-overlay">
+        <div class="app-loading-spinner"></div>
+        <p>Chargement des données...</p>
+    </div>
+
+    <div class="container">
+        <!-- En-tête de la page -->
+        <header>
+            <div class="brand-section">
+                <div class="brand-logo" id="logo-icon"> 
+					<img src="neo2.png" alt="Logo entreprise" id="logo-img">
+				</div>
+                <div class="brand-title">
+                    <h1 id="main-heading">NEOPMO</h1>
+                    <p id="sub-heading">Suivi & Pilotage de Projets - NeoLedge MEA</p>
+                </div>
+            </div>
+
+            <div class="actions-section">
+                <!-- Sélecteur de semaine globale -->
+                <div class="week-selector" id="week-selector-container">
+                    <label for="global-week-select">Semaine de suivi :</label>
+                    <select id="global-week-select">
+                        <!-- Rempli dynamiquement en JS -->
+                    </select>
+                </div>
+
+                <button class="btn btn-secondary" id="current-week-btn" title="Afficher les données de la semaine en cours">
+                    <i data-lucide="calendar-check"></i> Semaine en cours
+                </button>
+
+                <!-- Thème & Actions de données -->
+                <button class="btn btn-secondary btn-icon-only" id="theme-toggle-btn" title="Changer de thème">
+                    <i data-lucide="sun" id="theme-icon-light"></i>
+                    <i data-lucide="moon" id="theme-icon-dark" style="display:none;"></i>
+                </button>
+
+                <button class="btn btn-secondary" id="import-json-btn">
+                    <i data-lucide="upload-cloud"></i> Importer JSON
+                </button>
+                <input type="file" id="import-file-input" accept=".json" style="display: none;">
+
+                <button class="btn btn-secondary" id="export-json-btn" title="Exporter toutes les données au format JSON">
+                    <i data-lucide="download"></i> Exporter JSON
+                </button>
+
+                <button class="btn btn-secondary" id="export-csv-btn" title="Exporter la semaine actuelle au format CSV">
+                    <i data-lucide="file-spreadsheet"></i> Exporter CSV
+                </button>
+
+                <button class="btn btn-secondary" id="demo-data-btn" style="background: rgba(99, 102, 241, 0.15); border-color: var(--primary);">
+                    <i data-lucide="database"></i> Données Démo
+                </button>
+
+                <button class="btn btn-secondary" id="clear-demo-data-btn" title="Supprimer les données de démonstration" style="color: var(--weather-danger); border-color: rgba(239, 68, 68, 0.3);">
+                    <i data-lucide="trash-2"></i> Supprimer Démo
+                </button>
+
+                <button class="btn btn-primary" id="add-project-btn">
+                    <i data-lucide="plus"></i> Nouveau Projet
+                </button>
+            </div>
+        </header>
+
+        <!-- Navigation par Onglets -->
+        <nav class="tabs-nav" aria-label="Menu principal">
+            <button class="tab-btn active" data-tab="tab-dashboard">
+                <i data-lucide="layout-dashboard"></i> Tableau de bord
+            </button>
+            <button class="tab-btn" id="tab-btn-editor" data-tab="tab-editor">
+                <i data-lucide="edit-3"></i> Saisie & Historique
+            </button>
+            <button class="tab-btn" id="tab-btn-formation" data-tab="tab-formation">
+                <i data-lucide="graduation-cap"></i> Formation
+            </button>
+            <button class="tab-btn" id="tab-btn-tickets" data-tab="tab-tickets">
+                <i data-lucide="ticket"></i> Tickets NeoProject
+            </button>
+        </nav>
+
+        <!-- CONTENU 1: TABLEAU DE BORD (DASHBOARD) -->
+        <div class="tab-content active" id="tab-dashboard">
+            <!-- KPI Grid -->
+            <section class="kpi-grid" aria-label="Indicateurs clés">
+                <div class="card kpi-card" id="kpi-active-projects">
+                    <div class="kpi-icon"><i data-lucide="briefcase"></i></div>
+                    <div class="kpi-info">
+                        <h3>Projets Actifs</h3>
+                        <div class="kpi-value" id="kpi-active-count">0</div>
+                    </div>
+                </div>
+                <div class="card kpi-card" id="kpi-total-users">
+                    <div class="kpi-icon"><i data-lucide="users"></i></div>
+                    <div class="kpi-info">
+                        <h3>Utilisateurs Impactés</h3>
+                        <div class="kpi-value" id="kpi-users-count">0</div>
+                    </div>
+                </div>
+                <div class="card kpi-card" id="kpi-avg-progress">
+                    <div class="kpi-icon"><i data-lucide="percent"></i></div>
+                    <div class="kpi-info">
+                        <h3>Avancement Moyen</h3>
+                        <div class="kpi-value" id="kpi-progress-value">0%</div>
+                    </div>
+                </div>
+                <div class="card kpi-card" id="kpi-alerts-count" data-type="danger">
+                    <div class="kpi-icon"><i data-lucide="alert-triangle"></i></div>
+                    <div class="kpi-info">
+                        <h3>Points d'Attention / Bloqués</h3>
+                        <div class="kpi-value" id="kpi-alerts-value">0</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Graphiques de synthèse -->
+            <section class="charts-grid" aria-label="Graphiques du dashboard">
+                <div class="card chart-card chart-container-large">
+                    <h3><span>Distribution de l'Avancement par Projet</span> <i data-lucide="trending-up" style="color: #F8D32F;"></i></h3>
+                    <div class="chart-wrapper">
+                        <canvas id="progressChart"></canvas>
+                    </div>
+                </div>
+                <div class="card chart-card">
+                    <h3><span>Météo des Projets</span> <i data-lucide="cloud-sun" style="color: #F8D32F;"></i></h3>
+                    <div class="chart-wrapper">
+                        <canvas id="weatherChart"></canvas>
+                    </div>
+                </div>
+                <div class="card chart-card">
+                    <h3><span>Statut des Projets</span> <i data-lucide="pie-chart" style="color: #F8D32F;"></i></h3>
+                    <div class="chart-wrapper">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Timeline Planning Annuel -->
+            <section class="timeline-section" aria-label="Planning annuel des projets">
+                <div class="card timeline-chart-card">
+                    <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Planning Annuel des Projets (Roadmap 2026)</span>
+                        <i data-lucide="calendar-days" style="color: #F8D32F;"></i>
+                    </h3>
+                    <div class="timeline-grid" id="dashboard-timeline-grid">
+                        <!-- Rempli dynamiquement en JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section Suivi de Facturation Prévisionnelle -->
+            <section class="billing-dashboard-section" aria-label="Suivi de facturation prévisionnelle">
+                <div class="card">
+                    <div class="billing-dashboard-header">
+                        <h3 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="line-chart" style="color: var(--primary);"></i>
+                            Suivi de Facturation Prévisionnelle
+                        </h3>
+                        <div class="billing-dashboard-filters">
+                            <select class="filter-select" id="billing-filter-month">
+                                <option value="">Tous les mois</option>
+                            </select>
+                            <select class="filter-select" id="billing-filter-client">
+                                <option value="">Tous les clients</option>
+                            </select>
+                            <select class="filter-select" id="billing-filter-pm">
+                                <option value="">Tous les chefs de projet</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="billing-summary-bar" class="billing-summary-bar">
+                        <!-- Alimenté dynamiquement en JS -->
+                    </div>
+
+                    <div class="billing-chart-wrapper">
+                        <canvas id="billing-chart"></canvas>
+                    </div>
+
+                    <div class="empty-state" id="billing-chart-empty-state" style="display: none; padding: 2.5rem 1rem;">
+                        <i data-lucide="line-chart"></i>
+                        <h3>Aucune donnée de facturation</h3>
+                        <p>Ajoutez des échéances de facturation à vos projets (onglet Saisie & Historique) pour visualiser le suivi prévisionnel ici.</p>
+                    </div>
+
+                    <div id="billing-monthly-list" class="billing-monthly-list">
+                        <!-- Alimenté dynamiquement en JS : détail mensuel Planifié / Facturé / % -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section Liste des projets & Filtres -->
+            <section class="main-section" aria-label="Liste et filtres des projets">
+                <div class="controls-bar">
+                    <div class="search-filter-group">
+                        <div class="input-wrapper">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="search-input" placeholder="Rechercher un projet, client, CP...">
+                        </div>
+                        
+                        <select class="filter-select" id="filter-status">
+                            <option value="">Tous les statuts</option>
+                            <option value="planifié">Planifié</option>
+                            <option value="en cours">En cours</option>
+                            <option value="en retard">En retard</option>
+                            <option value="terminé">Terminé</option>
+                        </select>
+
+                        <select class="filter-select" id="filter-weather">
+                            <option value="">Toutes les météos</option>
+                            <option value="tout va bien">Tout va bien</option>
+                            <option value="c'est compliqué">C'est compliqué</option>
+                            <option value="bloqué">Bloqué</option>
+                        </select>
+
+                        <select class="filter-select" id="filter-pm">
+                            <option value="">Tous les Chefs de Projet</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button class="btn btn-secondary" id="clear-filters-btn">
+                            Réinitialiser les filtres
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Liste des projets (Vue tableau) -->
+                <div class="card" style="padding: 0; overflow: hidden;">
+                    <div class="table-container">
+                        <table class="projects-table" id="projects-list-table">
+                            <thead>
+                                <tr>
+                                    <th>Projet / Client</th>
+                                    <th>Statut</th>
+                                    <th>Météo</th>
+                                    <th>Avancement</th>
+                                    <th>Chef de projet</th>
+                                    <th>Type & Mode</th>
+                                    <th>Utilisateurs</th>
+                                    <th style="width: 250px;">Hebdo: Travaux réalisés</th>
+                                    <th style="text-align: right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="projects-table-body">
+                                <!-- Rempli dynamiquement en JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Vue vide si aucun projet -->
+                    <div class="empty-state" id="projects-empty-state" style="display: none;">
+                        <i data-lucide="folder-open"></i>
+                        <h3>Aucun projet trouvé</h3>
+                        <p>Commencez par ajouter un projet ou chargez les données de démonstration pour explorer le dashboard.</p>
+                        <div style="display: flex; gap: 1rem;">
+                            <button class="btn btn-primary" id="empty-add-btn"><i data-lucide="plus"></i> Ajouter un projet</button>
+                            <button class="btn btn-secondary" id="empty-demo-btn"><i data-lucide="database"></i> Charger la démo</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- CONTENU 2: ESPACE SAISIE RAPIDE & HISTORIQUE (SPLIT-VIEW) -->
+        <div class="tab-content" id="tab-editor" style="display: none;">
+            <div class="split-view-container">
+                <!-- Colonne de gauche : Sélecteur de projet -->
+                <div class="split-left-pane">
+                    <div class="pane-header">
+                        <h3>Liste des Projets</h3>
+                        <div class="input-wrapper" style="width: 100%; max-width: 100%; margin-top: 0.5rem;">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="editor-search-input" placeholder="Filtrer les projets...">
+                        </div>
+                    </div>
+                    <div class="project-selector-list" id="editor-projects-list">
+                        <!-- Alimenté dynamiquement en JS -->
+                    </div>
+                </div>
+
+                <!-- Colonne de droite : Formulaire et Historique -->
+                <div class="split-right-pane">
+                    <!-- État vide si aucun projet sélectionné -->
+                    <div class="empty-state" id="editor-empty-state" style="padding: 6rem 2rem;">
+                        <i data-lucide="arrow-left-right" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 1.5rem;"></i>
+                        <h3>Sélectionnez un projet</h3>
+                        <p>Veuillez choisir un projet dans la liste de gauche pour renseigner le rapport hebdomadaire ou modifier l'historique.</p>
+                    </div>
+
+                    <!-- Zone de saisie active -->
+                    <div class="editor-workspace" id="editor-workspace" style="display: none;">
+                        <!-- Carte d'en-tête du projet sélectionné -->
+                        <div class="card editor-project-header">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+                                <div>
+                                    <h2 id="editor-project-name" style="font-size: 1.5rem; font-weight: 700; color: var(--text-main);">Projet</h2>
+                                    <p id="editor-project-client" style="color: var(--text-muted); font-size: 0.95rem; font-weight: 500;">Client: -</p>
+                                </div>
+                                <div>
+                                    <button class="btn btn-secondary" id="editor-edit-info-btn">
+                                        <i data-lucide="edit-3"></i> Infos Générales
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="details-grid" style="margin-top: 1rem; border-color: var(--border-color); padding: 0.8rem;">
+                                <div class="detail-item">
+                                    <span class="detail-label">Chef de projet</span>
+                                    <span class="detail-value" id="editor-pm-val">-</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Type & Mode</span>
+                                    <span class="detail-value" id="editor-type-val">-</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Dates prévues</span>
+                                    <span class="detail-value" id="editor-dates-val">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Formulaire de saisie de suivi hebdomadaire -->
+                        <div class="card" style="margin-top: 1.5rem;">
+                            <div class="editor-form-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                                <h3 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                                    <i data-lucide="calendar" style="color: var(--primary);"></i>
+                                    Saisie du Suivi Hebdomadaire
+                                </h3>
+                                <div class="week-selector" style="padding: 0.35rem 0.75rem; background: rgba(0,0,0,0.15);">
+                                    <label for="editor-week-select">Semaine :</label>
+                                    <select id="editor-week-select" style="font-weight: 700;">
+                                        <!-- Alimenté dynamiquement en JS -->
+                                    </select>
+                                </div>
+                            </div>
+
+                            <form id="editor-weekly-form">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="editor-status">Statut *</label>
+                                        <select id="editor-status" required>
+                                            <option value="planifié">Planifié</option>
+                                            <option value="en cours">En cours</option>
+                                            <option value="en retard">En retard</option>
+                                            <option value="terminé">Terminé</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editor-weather">Météo *</label>
+                                        <select id="editor-weather" required>
+                                            <option value="tout va bien">Tout va bien 🟢</option>
+                                            <option value="c'est compliqué">C'est compliqué 🟡</option>
+                                            <option value="bloqué">Bloqué 🔴</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editor-progress">Avancement (%) *</label>
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <input type="number" id="editor-progress" min="0" max="100" required placeholder="0-100">
+                                            <span style="font-weight: bold; font-size: 1.1rem;">%</span>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editor-users">Nombre d'utilisateurs</label>
+                                        <input type="number" id="editor-users" min="0" placeholder="Ex: 1200">
+                                    </div>
+
+                                    <div class="form-group form-col-span-2">
+                                        <label for="editor-done">Travaux réalisés cette semaine *</label>
+                                        <textarea id="editor-done" required placeholder="Décrivez les chantiers achevés, livrables validés et jalons atteints..."></textarea>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="editor-current-step">Étape actuelle *</label>
+                                        <input type="text" id="editor-current-step" required placeholder="Ex: Phase de développement des APIs...">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editor-next-step">Prochaine étape *</label>
+                                        <input type="text" id="editor-next-step" required placeholder="Ex: Tests d'intégration et audit sécurité...">
+                                    </div>
+
+                                    <div class="form-group form-col-span-2">
+                                        <label for="editor-blockers">Points d'attention & Bloquants</label>
+                                        <textarea id="editor-blockers" placeholder="Précisez les blocages techniques, organisationnels ou dépendances critiques..."></textarea>
+                                    </div>
+
+                                    <div class="form-group form-col-span-2">
+                                        <label for="editor-risks">Risques identifiés</label>
+                                        <textarea id="editor-risks" placeholder="Listez les risques majeurs identifiés et les plans d'atténuation envisagés..."></textarea>
+                                    </div>
+                                </div>
+                                <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+                                    <button type="submit" class="btn btn-primary" id="editor-save-btn">
+                                        <i data-lucide="save"></i> Enregistrer pour cette semaine
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Modalités de Facturation du Projet -->
+                        <div class="card" style="margin-top: 1.5rem;">
+                            <div class="editor-form-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                                <h3 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                                    <i data-lucide="wallet" style="color: var(--primary);"></i>
+                                    Modalités de Facturation
+                                </h3>
+                                <button type="button" class="btn btn-secondary" id="billing-add-row-btn">
+                                    <i data-lucide="plus"></i> Ajouter une échéance
+                                </button>
+                            </div>
+
+                            <div class="table-container">
+                                <table class="projects-table billing-table" id="billing-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Mois</th>
+                                            <th>État</th>
+                                            <th>Montant</th>
+                                            <th>Modalité (%)</th>
+                                            <th style="text-align: right;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="billing-table-body">
+                                        <!-- Alimenté dynamiquement en JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="empty-state" id="billing-empty-state" style="padding: 2.5rem 1rem; display: none;">
+                                <i data-lucide="wallet"></i>
+                                <h3>Aucune échéance de facturation</h3>
+                                <p>Ajoutez les échéances prévisionnelles de facturation pour ce projet : mois, état, montant et modalité (%).</p>
+                            </div>
+
+                            <div class="billing-total-bar" id="billing-total-bar" style="display: none;">
+                                <span>Total planifié : <strong id="billing-total-amount">0</strong></span>
+                                <span>Total facturé / payé : <strong id="billing-total-invoiced">0</strong></span>
+                                <span>Avancement facturation : <strong id="billing-total-percent">0%</strong></span>
+                            </div>
+                        </div>
+
+                        <!-- Historique des rapports pour le projet en cours -->
+                        <div class="card" style="margin-top: 1.5rem;">
+                            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+                                <i data-lucide="history" style="color: var(--secondary);"></i>
+                                Historique & Archives Hebdomadaires
+                            </h3>
+                            <div id="editor-history-timeline">
+                                <!-- Alimenté dynamiquement en JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+		
+		<!-- CONTENU 3: FORMATION (CALENDRIER INTERACTIF) -->
+    <div class="tab-content" id="tab-formation" style="display: none;">
+        <section class="main-section" aria-label="Calendrier des sessions de formation">
+            <div class="card training-calendar-card">
+                <div class="training-calendar-toolbar">
+                    <div class="training-calendar-nav">
+                        <button class="btn btn-secondary btn-icon-only" id="training-prev-month-btn" title="Mois précédent">
+                            <i data-lucide="chevron-left"></i>
+                        </button>
+                        <h3 id="training-calendar-label">Mois Année</h3>
+                        <button class="btn btn-secondary btn-icon-only" id="training-next-month-btn" title="Mois suivant">
+                            <i data-lucide="chevron-right"></i>
+                        </button>
+                        <button class="btn btn-secondary" id="training-today-btn">Aujourd'hui</button>
+                    </div>
+                    <button class="btn btn-primary" id="add-training-btn">
+                        <i data-lucide="plus"></i> Nouvelle Session de Formation
+                    </button>
+                </div>
+
+                <div class="training-calendar-weekdays">
+                    <div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div>
+                </div>
+
+                <div class="training-calendar-grid" id="training-calendar-grid">
+                    <!-- Rempli dynamiquement en JS -->
+                </div>
+            </div>
+
+            <!-- Sessions à venir (liste synthétique) -->
+            <div class="card" style="margin-top: 1.5rem;">
+                <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <i data-lucide="list" style="color: var(--primary);"></i>
+                    <span>Sessions à venir</span>
+                </h3>
+                <div id="training-upcoming-list">
+                    <!-- Rempli dynamiquement en JS -->
+                </div>
+            </div>
+        </section>
+    </div>
+    
+
+    
+
+    <!-- CONTENU 4: TICKETS NEOPROJECT (IMPORT XLS & TABLEAU INTERACTIF) -->
+    <div class="tab-content" id="tab-tickets" style="display: none;">
+        <section class="main-section" aria-label="Tickets NeoProject">
+            <!-- Bandeau d'import -->
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <div class="tickets-toolbar">
+                    <div>
+                        <h3 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="ticket" style="color: #F6C900"></i>
+                            <span>Tickets NeoProject</span>
+                        </h3>
+                        <p id="tickets-import-info" style="color: var(--text-muted); font-size: 0.82rem; margin-top: 0.35rem;">
+                            Aucun import effectué pour le moment.
+                        </p>
+                    </div>
+                    <div class="tickets-toolbar-actions">
+                        <button class="btn btn-secondary" id="tickets-clear-btn">
+                            <i data-lucide="trash-2"></i> Vider le tableau
+                        </button>
+                        <button class="btn btn-primary" id="tickets-import-btn">
+                            <i data-lucide="upload"></i> Importer un fichier XLS
+                        </button>
+                        <input type="file" id="tickets-import-input" accept=".xls,.xlsx" style="display: none;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtres & Recherche -->
+            <div class="controls-bar">
+                <div class="search-filter-group">
+                    <div class="input-wrapper">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="tickets-search-input" placeholder="Rechercher un ID, sujet, assigné, auteur...">
+                    </div>
+
+                    <select class="filter-select" id="tickets-filter-team">
+                        <option value="">Toutes les équipes</option>
+                    </select>
+
+                    <select class="filter-select" id="tickets-filter-status">
+                        <option value="">Tous les statuts</option>
+                    </select>
+
+                    <select class="filter-select" id="tickets-filter-priority">
+                        <option value="">Toutes les priorités</option>
+                    </select>
+                </div>
+                <div>
+                    <button class="btn btn-secondary" id="tickets-clear-filters-btn">
+                        Réinitialiser les filtres
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tableau interactif des tickets -->
+            <div class="card" style="padding: 0; overflow: hidden; margin-top: 1.5rem;">
+                <div class="table-container">
+                    <table class="projects-table tickets-table" id="tickets-table">
+                        <thead>
+                            <tr>
+                                <th>Équipe</th>
+                                <th>ID</th>
+                                <th>Sujet</th>
+                                <th>Type</th>
+                                <th>Statut</th>
+                                <th>Priorité</th>
+                                <th>Assigné à</th>
+                                <th>Créé le</th>
+                                <th>Date Échéance</th>
+                                <th>Auteur</th>
+                                <th style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tickets-table-body">
+                            <!-- Rempli dynamiquement en JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Vue vide si aucun ticket importé -->
+                <div class="empty-state" id="tickets-empty-state" style="display: flex;">
+                    <i data-lucide="ticket"></i>
+                    <h3>Aucun ticket importé</h3>
+                    <p>Importez votre extraction hebdomadaire NeoProject au format XLS pour afficher et mettre à jour les tickets ici.</p>
+                    <div style="display: flex; gap: 1rem;">
+                        <button class="btn btn-primary" id="tickets-empty-import-btn"><i data-lucide="upload"></i> Importer un fichier XLS</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Datalists pour l'auto-complétion des champs éditables du tableau -->
+            <datalist id="tickets-team-datalist"></datalist>
+            <datalist id="tickets-type-datalist"></datalist>
+            <datalist id="tickets-status-datalist"></datalist>
+            <datalist id="tickets-priority-datalist"></datalist>
+            <datalist id="tickets-assignee-datalist"></datalist>
+            <datalist id="tickets-author-datalist"></datalist>
+        </section>
+    </div>
+
+    <!-- MODAL 1: Infos Générales du Projet (Création/Édition) -->
+    <div class="modal-overlay" id="project-modal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="project-modal-title">Nouveau Projet</h2>
+                <button class="modal-close" id="project-modal-close-btn" aria-label="Fermer"><i data-lucide="x"></i></button>
+            </div>
+            <form id="project-form">
+                <input type="hidden" id="edit-project-id">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-group form-col-span-2">
+                            <label for="project-name">Nom du projet *</label>
+                            <input type="text" id="project-name" required placeholder="Ex: Migration Cloud Datacenter">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="project-client">Client *</label>
+                            <input type="text" id="project-client" required placeholder="Ex: Banque Centrale">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="project-pm">Chef de projet *</label>
+                            <input type="text" id="project-pm" required placeholder="Ex: Jean Dupont">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="project-type">Type de déploiement</label>
+                            <select id="project-type">
+                                <option value="Cloud">Cloud</option>
+                                <option value="On Prem">On Prem</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Mode de gestion</label>
+                            <div class="segmented-control">
+                                <div class="segmented-option">
+                                    <input type="radio" id="mode-direct" name="project-mode" value="Direct" checked>
+                                    <label for="mode-direct">Direct</label>
+                                </div>
+                                <div class="segmented-option">
+                                    <input type="radio" id="mode-partner" name="project-mode" value="Partenaire">
+                                    <label for="mode-partner">Partenaire</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group form-col-span-2 conditional-field" id="partner-name-container">
+                            <label for="partner-name">Nom du partenaire *</label>
+                            <input type="text" id="partner-name" placeholder="Ex: Capgemini, Sopra Steria...">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="project-start-date">Date de début</label>
+                            <input type="date" id="project-start-date">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="project-end-date">Date de fin prévue</label>
+                            <input type="date" id="project-end-date">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="project-modal-cancel">Annuler</button>
+                    <button type="submit" class="btn btn-primary" id="project-modal-save">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: Suivi Hebdomadaire (Raccourci depuis tableau) -->
+    <div class="modal-overlay" id="weekly-update-modal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="weekly-modal-title">Mise à jour hebdomadaire</h2>
+                <button class="modal-close" id="weekly-modal-close-btn" aria-label="Fermer"><i data-lucide="x"></i></button>
+            </div>
+            <form id="weekly-update-form">
+                <input type="hidden" id="weekly-project-id">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="weekly-week">Semaine de mise à jour *</label>
+                            <select id="weekly-week" required>
+                                <!-- Alimenté dynamiquement en JS -->
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="weekly-status">Statut du projet *</label>
+                            <select id="weekly-status" required>
+                                <option value="planifié">Planifié</option>
+                                <option value="en cours">En cours</option>
+                                <option value="en retard">En retard</option>
+                                <option value="terminé">Terminé</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="weekly-weather">Météo du projet *</label>
+                            <select id="weekly-weather" required>
+                                <option value="tout va bien">Tout va bien 🟢</option>
+                                <option value="c'est compliqué">C'est compliqué 🟡</option>
+                                <option value="bloqué">Bloqué 🔴</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="weekly-progress">Avancement (%) *</label>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="number" id="weekly-progress" min="0" max="100" required placeholder="0-100">
+                                <span style="font-weight: bold; font-size: 1.1rem;">%</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="weekly-users">Nombre d'utilisateurs</label>
+                            <input type="number" id="weekly-users" min="0" placeholder="Ex: 500">
+                        </div>
+
+                        <div class="form-group">
+                            <!-- Espace vide pour alignement grid -->
+                        </div>
+
+                        <div class="form-group form-col-span-2">
+                            <label for="weekly-done">Travaux réalisés cette semaine *</label>
+                            <textarea id="weekly-done" required placeholder="Décrivez les livrables et jalons complétés cette semaine..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="weekly-current-step">Étape actuelle *</label>
+                            <input type="text" id="weekly-current-step" required placeholder="Ex: Phase de cadrage, phase de tests de charge...">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="weekly-next-step">Prochaine étape *</label>
+                            <input type="text" id="weekly-next-step" required placeholder="Ex: Lancement des formations utilisateurs...">
+                        </div>
+
+                        <div class="form-group form-col-span-2">
+                            <label for="weekly-blockers">Points d'attention et points bloquants</label>
+                            <textarea id="weekly-blockers" placeholder="Indiquez ici les alertes, blocages techniques ou de gouvernance..."></textarea>
+                        </div>
+
+                        <div class="form-group form-col-span-2">
+                            <label for="weekly-risks">Risques identifiés</label>
+                            <textarea id="weekly-risks" placeholder="Décrivez les risques projets potentiels ou avérés..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="weekly-modal-cancel">Annuler</button>
+                    <button type="submit" class="btn btn-primary" id="weekly-modal-save">Enregistrer la semaine</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: Détails & Historique (Raccourci depuis tableau) -->
+    <div class="modal-overlay" id="history-modal">
+        <div class="modal-box" style="max-width: 900px;">
+            <div class="modal-header">
+                <div style="display: flex; flex-direction: column;">
+                    <h2 id="history-modal-title">Projet Detail & Historique</h2>
+                    <span id="history-modal-subtitle" style="color: var(--text-muted); font-size: 0.9rem;"></span>
+                </div>
+                <button class="modal-close" id="history-modal-close-btn" aria-label="Fermer"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="view-project-details">
+                    <!-- Fiche d'informations générales du projet -->
+                    <div class="details-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">Client</span>
+                            <span class="detail-value" id="detail-client">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Chef de projet</span>
+                            <span class="detail-value" id="detail-pm">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Type & Mode</span>
+                            <span class="detail-value" id="detail-typemode">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Utilisateurs actuels</span>
+                            <span class="detail-value" id="detail-users">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Date Début</span>
+                            <span class="detail-value" id="detail-start">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Date Fin Prévue</span>
+                            <span class="detail-value" id="detail-end">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Historique hebdomadaire -->
+                    <div class="history-section">
+                        <h4>
+                            <span>Historique des suivis hebdomadaires</span>
+                            <button class="btn btn-secondary" id="history-add-update-btn" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">
+                                <i data-lucide="plus"></i> Mettre à jour
+                            </button>
+                        </h4>
+                        
+                        <div id="history-timeline-container">
+                            <!-- Rempli dynamiquement en JS (Rapports empilés) -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="history-modal-close">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: Session de Formation (Création/Édition) -->
+    <div class="modal-overlay" id="training-modal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="training-modal-title">Nouvelle Session de Formation</h2>
+                <button class="modal-close" id="training-modal-close-btn" aria-label="Fermer"><i data-lucide="x"></i></button>
+            </div>
+            <form id="training-form">
+                <input type="hidden" id="edit-training-id">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="training-client">Client *</label>
+                            <input type="text" id="training-client" required placeholder="Ex: Banque Centrale">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="training-name">Nom de la formation *</label>
+                            <input type="text" id="training-name" required placeholder="Ex: Prise en main de la plateforme">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="training-trainer">Formateur *</label>
+                            <input type="text" id="training-trainer" required placeholder="Ex: Sami Ben Ali">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="training-location">Lieu *</label>
+                            <input type="text" id="training-location" required placeholder="Ex: Site client, Visioconférence...">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="training-start-date">Date de début *</label>
+                            <input type="date" id="training-start-date" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="training-end-date">Date de fin *</label>
+                            <input type="date" id="training-end-date" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="justify-content: space-between;">
+                    <button type="button" class="btn btn-secondary" id="training-delete-btn" style="color: var(--weather-danger); border-color: rgba(239, 68, 68, 0.2); display: none;">
+                        <i data-lucide="trash-2"></i> Supprimer
+                    </button>
+                    <div style="display: flex; gap: 0.75rem;">
+                        <button type="button" class="btn btn-secondary" id="training-modal-cancel">Annuler</button>
+                        <button type="submit" class="btn btn-primary" id="training-modal-save">Enregistrer</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+	</div>
+
+    <!-- Conteneur Toast Notifications -->
+    <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+    <!-- Scripts application -->
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
