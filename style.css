@@ -220,7 +220,7 @@ body.light-theme .tab-btn:hover {
 .week-selector select {
     background: transparent;
     border: none;
-    color: #2D8FAC;
+    color: #F6C900;
     font-family: var(--font-sans);
     font-size: 0.95rem;
     font-weight: 600;
@@ -1458,7 +1458,7 @@ body.light-theme .training-calendar-day {
 }
 
 .training-session-chip {
-    background: #2D8FAC;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
     color: white;
     font-size: 0.66rem;
     font-weight: 600;
@@ -1848,5 +1848,70 @@ select.billing-cell-input.billing-state-select[data-val="payé"] {
 
 @keyframes app-loading-spin {
     to { transform: rotate(360deg); }
+}
+
+/* --- ÉCRAN DE CONNEXION (SUPABASE AUTH) --- */
+#auth-login-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-app);
+    padding: 1.5rem;
+}
+
+.auth-login-box {
+    width: 100%;
+    max-width: 380px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 2.25rem 2rem;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.auth-login-logo {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.25rem;
+}
+
+.auth-login-logo img {
+    height: 48px;
+    width: auto;
+}
+
+.auth-login-box h2 {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin-bottom: 0.4rem;
+}
+
+.auth-login-box p {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    margin-bottom: 1.75rem;
+}
+
+.auth-login-box form {
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+}
+
+#auth-login-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: var(--weather-danger);
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
+    margin: 0;
 }
 

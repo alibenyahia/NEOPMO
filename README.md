@@ -92,9 +92,65 @@ Si ce n'est pas le cas :
 
 ## ⚠️ Points importants à connaître
 
-- **Aucune authentification n'est mise en place par défaut** : toute personne disposant de l'URL du site peut consulter ET modifier les données. C'est adapté à un usage en équipe restreinte/interne. Si vous voulez restreindre l'accès, Supabase propose un système d'authentification (email/mot de passe, magic link, SSO...) qu'on peut ajouter dans un second temps.
+- **Par défaut, aucune authentification n'est active** tant que l'étape 6 n'a pas été réalisée : toute personne disposant de l'URL du site peut consulter ET modifier les données. Voir la section [6. Protéger l'accès avec un mot de passe](#6-protéger-laccès-avec-un-mot-de-passe-authentification) pour restreindre l'accès à votre équipe.
 - **Toutes les données partagent une seule ligne JSON** (`workspace_state`, id `main`). C'est volontairement simple pour une migration rapide depuis le `localStorage`. En cas de modifications simultanées par deux utilisateurs à quelques secondes d'intervalle, la dernière sauvegarde écrase la précédente (pas de fusion automatique). Pour une utilisation plus intensive à plusieurs, on pourra faire évoluer le schéma vers des tables séparées (`projects`, `tickets`, etc.) avec des mises à jour ligne par ligne.
 - La clé **anon** de Supabase est prévue pour être visible publiquement (ce n'est pas un mot de passe secret) : la sécurité réelle repose sur les *policies* RLS définies dans `supabase_schema.sql`.
+
+---
+
+## 6. Protéger l'accès avec un mot de passe (authentification)
+
+Par défaut (étapes 1 à 5), n'importe qui avec l'URL du site peut voir et modifier les données. Cette étape ajoute un vrai écran de connexion (email + mot de passe) avant d'accéder à l'application.
+
+> ⚠️ Une simple "case mot de passe" côté front-end ne suffirait pas : la clé
+> Supabase étant visible dans le code source de la page, n'importe qui pourrait
+> contourner un écran cosmétique et appeler directement l'API Supabase. La
+> vraie protection se fait donc à deux niveaux : (1) un écran de connexion
+> réel via Supabase Auth, et (2) des règles côté base de données (RLS) qui
+> exigent d'être connecté pour lire/écrire — c'est ce que met en place cette
+> étape.
+
+### 6.1 Restreindre l'accès à la base de données
+
+Dans Supabase, allez dans **SQL Editor > New query**, collez le contenu de [`supabase_auth_policies.sql`](./supabase_auth_policies.sql), puis **Run**.
+
+Cela remplace les règles "accès public" par des règles "accès réservé aux utilisateurs connectés".
+
+### 6.2 Désactiver les inscriptions publiques
+
+Vous ne voulez pas que n'importe qui puisse créer un compte lui-même. Dans Supabase :
+1. Allez dans **Authentication > Sign In / Providers** (menu de gauche)
+2. Repérez le réglage **"Allow new users to sign up"**
+3. **Désactivez-le**, puis sauvegardez
+
+Résultat : seuls les comptes que **vous** créez manuellement pourront se connecter.
+
+### 6.3 Créer les comptes de votre équipe
+
+Toujours dans Supabase :
+1. Allez dans **Authentication > Users**
+2. Cliquez sur **Add user > Create new user**
+3. Renseignez un email et un mot de passe pour chaque personne devant accéder à l'application
+4. Cochez "Auto Confirm User" (pour ne pas avoir besoin d'un email de confirmation)
+5. Répétez pour chaque membre de l'équipe
+
+### 6.4 Mettre à jour le code
+
+Le code de l'application (`index.html`, `app.js`, `style.css`) contient déjà l'écran de connexion — il ne s'active automatiquement que si `config.js` est rempli (ce qui est votre cas). Il n'y a rien d'autre à modifier : poussez simplement les fichiers si vous ne l'avez pas encore fait :
+
+```bash
+git add .
+git commit -m "Ajout de l'authentification"
+git push
+```
+
+Vercel redéploiera automatiquement.
+
+### 6.5 Tester
+
+1. Ouvrez l'URL du site dans un navigateur privé : un écran "Accès réservé" doit apparaître, bloquant l'accès au tableau de bord.
+2. Connectez-vous avec l'un des comptes créés à l'étape 6.3 : vous devez arriver normalement sur le dashboard.
+3. Le bouton de déconnexion (icône en haut à droite, à côté du thème) vous ramène à l'écran de connexion.
 
 ---
 
@@ -106,4 +162,5 @@ style.css              Habillage visuel (thème sombre/clair)
 app.js                  Toute la logique applicative (rendu, calculs, événements)
 config.js               Clés de connexion Supabase (à compléter)
 supabase_schema.sql     Script SQL à exécuter une fois dans Supabase
+supabase_auth_policies.sql  Script SQL optionnel (étape 6) pour restreindre l'accès aux utilisateurs connectés
 ```

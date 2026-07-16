@@ -16,6 +16,34 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+    <!-- Écran de connexion : bloque l'accès à l'application tant que l'utilisateur n'est pas authentifié -->
+    <div id="auth-login-overlay" style="display: none;">
+        <div class="auth-login-box">
+            <div class="auth-login-logo">
+                <img src="neo2.png" alt="Logo entreprise">
+            </div>
+            <h2>Accès réservé</h2>
+            <p>Veuillez vous connecter pour accéder à NEOPMO.</p>
+
+            <form id="auth-login-form">
+                <div class="form-group">
+                    <label for="auth-email">Email</label>
+                    <input type="email" id="auth-email" required autocomplete="username" placeholder="vous@exemple.com">
+                </div>
+                <div class="form-group">
+                    <label for="auth-password">Mot de passe</label>
+                    <input type="password" id="auth-password" required autocomplete="current-password" placeholder="••••••••">
+                </div>
+
+                <p id="auth-login-error" style="display: none;"></p>
+
+                <button type="submit" class="btn btn-primary" id="auth-login-submit-btn" style="width: 100%; justify-content: center;">
+                    <i data-lucide="log-in"></i> Se connecter
+                </button>
+            </form>
+        </div>
+    </div>
+
     <!-- Overlay de chargement affiché pendant la récupération des données (Supabase ou local) -->
     <div id="app-loading-overlay">
         <div class="app-loading-spinner"></div>
@@ -52,6 +80,10 @@
                 <button class="btn btn-secondary btn-icon-only" id="theme-toggle-btn" title="Changer de thème">
                     <i data-lucide="sun" id="theme-icon-light"></i>
                     <i data-lucide="moon" id="theme-icon-dark" style="display:none;"></i>
+                </button>
+
+                <button class="btn btn-secondary btn-icon-only" id="auth-logout-btn" title="Se déconnecter" style="display: none;">
+                    <i data-lucide="log-out"></i>
                 </button>
 
                 <button class="btn btn-secondary" id="import-json-btn">
@@ -171,7 +203,7 @@
                 <div class="card">
                     <div class="billing-dashboard-header">
                         <h3 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
-                            <i data-lucide="line-chart" style="color: #F8D32F"></i>
+                            <i data-lucide="line-chart" style="color: var(--primary);"></i>
                             Suivi de Facturation Prévisionnelle
                         </h3>
                         <div class="billing-dashboard-filters">

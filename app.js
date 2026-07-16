@@ -2848,29 +2848,118 @@ function setupEventListeners() {
     els.billingFilterPm.addEventListener('change', renderBillingChart);
 }
 
-// Initial initialization
-async function init() {
-    await loadState();
-    initTheme();
-    initWeekSelector();
-    setupEventListeners();
-    populatePmFilter();
-    
-    // Set default selected project in editor (first project)
-    if (state.projects.length > 0) {
-        selectedProjectId = state.projects[0].id;
-    }
-    
-    renderDashboard();
-    
-    refreshIcons();
+// --- AUTHENTIFICATION (SUPABASE AUTH) ---
 
-    // Masque l'overlay de chargement une fois les données prêtes
+function hideLoadingOverlay() {
     const loadingOverlay = document.getElementById('app-loading-overlay');
     if (loadingOverlay) {
         loadingOverlay.classList.add('is-hidden');
         setTimeout(() => loadingOverlay.remove(), 350);
     }
+}
+
+function showLoginScreen() {
+    hideLoadingOverlay();
+    const overlay = document.getElementById('auth-login-overlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+
+function hideLoginScreen() {
+    const overlay = document.getElementById('auth-login-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+// Wires the login form and logout button. Called once, before any auth check,
+// so the login screen is interactive even before the rest of the app initializes.
+function setupAuthListeners() {
+    const loginForm = document.getElementById('auth-login-form');
+    const logoutBtn = document.getElementById('auth-logout-btn');
+
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value;
+            const errorEl = document.getElementById('auth-login-error');
+            const submitBtn = document.getElementById('auth-login-submit-btn');
+
+            errorEl.style.display = 'none';
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i data-lucide="loader-2"></i> Connexion...';
+            refreshIcons();
+
+            const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+            if (error) {
+                errorEl.textContent = "Email ou mot de passe incorrect.";
+                errorEl.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i data-lucide="log-in"></i> Se connecter';
+                refreshIcons();
+                return;
+            }
+
+            hideLoginScreen();
+            const loadingOverlayEl = document.getElementById('app-loading-overlay');
+            if (loadingOverlayEl) loadingOverlayEl.classList.remove('is-hidden');
+            await bootApp();
+        });
+    }
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            if (!confirm("Voulez-vous vraiment vous déconnecter ?")) return;
+            await supabaseClient.auth.signOut();
+            location.reload();
+        });
+    }
+}
+
+// Boots the actual application (data load + rendering). Split out from init()
+// so it can be triggered either immediately (no auth required) or after a
+// successful login.
+async function bootApp() {
+    await loadState();
+    initTheme();
+    initWeekSelector();
+    setupEventListeners();
+    populatePmFilter();
+
+    // Set default selected project in editor (first project)
+    if (state.projects.length > 0) {
+        selectedProjectId = state.projects[0].id;
+    }
+
+    renderDashboard();
+
+    refreshIcons();
+    hideLoadingOverlay();
+}
+
+// Initial initialization
+async function init() {
+    setupAuthListeners();
+
+    if (supabaseClient) {
+        // Show the logout button only when Supabase Auth is actually in use
+        const logoutBtnEl = document.getElementById('auth-logout-btn');
+        if (logoutBtnEl) logoutBtnEl.style.display = 'inline-flex';
+
+        const { data: { session } } = await supabaseClient.auth.getSession();
+
+        if (!session) {
+            showLoginScreen();
+
+            // Keep the app in sync if the person logs in/out in another tab
+            supabaseClient.auth.onAuthStateChange((event) => {
+                if (event === 'SIGNED_OUT') location.reload();
+            });
+            return; // Wait for the login form submission (see setupAuthListeners)
+        }
+    }
+
+    await bootApp();
 }
 
 document.addEventListener('DOMContentLoaded', init);
