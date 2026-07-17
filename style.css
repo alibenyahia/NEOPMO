@@ -174,7 +174,8 @@ header {
 }
 
 body.light-theme .tab-btn:hover {
-    background: rgba(0, 0, 0, 0.03);
+    background: #F6C900;
+	color: black;
 }
 
 .tab-btn.active {
