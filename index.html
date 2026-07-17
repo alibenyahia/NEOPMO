@@ -86,21 +86,13 @@
                     <i data-lucide="log-out"></i>
                 </button>
 
-                <button class="btn btn-secondary" id="import-json-btn">
-                    <i data-lucide="upload-cloud"></i> Importer JSON
+                <button class="btn btn-secondary" id="import-data-btn" title="Importer des données depuis un fichier JSON exporté par l'application">
+                    <i data-lucide="upload-cloud"></i> Importer Données
                 </button>
                 <input type="file" id="import-file-input" accept=".json" style="display: none;">
 
-                <button class="btn btn-secondary" id="export-json-btn" title="Exporter toutes les données au format JSON">
-                    <i data-lucide="download"></i> Exporter JSON
-                </button>
-
-                <button class="btn btn-secondary" id="export-csv-btn" title="Exporter la semaine actuelle au format CSV">
-                    <i data-lucide="file-spreadsheet"></i> Exporter CSV
-                </button>
-
-                <button class="btn btn-secondary" id="demo-data-btn" style="background: rgba(99, 102, 241, 0.15); border-color: var(--primary);">
-                    <i data-lucide="database"></i> Données Démo
+                <button class="btn btn-secondary" id="export-data-btn" title="Exporter toutes les données de l'application au format JSON">
+                    <i data-lucide="download"></i> Exporter Données
                 </button>
 
                 <button class="btn btn-secondary" id="clear-demo-data-btn" title="Supprimer les données de démonstration" style="color: var(--weather-danger); border-color: rgba(239, 68, 68, 0.3);">
@@ -575,6 +567,37 @@
                 </div>
             </div>
 
+            <!-- Statistiques -->
+            <div class="card" id="tickets-stats-card" style="margin-bottom: 1.5rem; display: none;">
+                <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <i data-lucide="bar-chart-3" style="color: var(--primary);"></i>
+                    Statistiques
+                </h3>
+
+                <div class="tickets-kpi-row" id="tickets-kpi-row">
+                    <!-- Alimenté dynamiquement en JS -->
+                </div>
+
+                <div class="tickets-breakdown-grid">
+                    <div class="tickets-breakdown-col">
+                        <h4>Tickets par Équipe</h4>
+                        <div id="tickets-breakdown-team"></div>
+                    </div>
+                    <div class="tickets-breakdown-col">
+                        <h4>Tickets par Auteur</h4>
+                        <div id="tickets-breakdown-author"></div>
+                    </div>
+                    <div class="tickets-breakdown-col">
+                        <h4>Tickets par Statut</h4>
+                        <div id="tickets-breakdown-status"></div>
+                    </div>
+                    <div class="tickets-breakdown-col">
+                        <h4>Tickets par Priorité</h4>
+                        <div id="tickets-breakdown-priority"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Filtres & Recherche -->
             <div class="controls-bar">
                 <div class="search-filter-group">
@@ -682,6 +705,21 @@
                             </select>
                         </div>
 
+                        <div class="form-group conditional-field" id="cloud-abonnement-container">
+                            <label for="project-abonnement">Abonnement</label>
+                            <input type="text" id="project-abonnement" placeholder="Ex: Abonnement annuel SaaS Premium">
+                        </div>
+
+                        <div class="form-group conditional-field" id="onprem-licences-container">
+                            <label for="project-licences">Licences</label>
+                            <input type="text" id="project-licences" placeholder="Ex: 50 licences perpétuelles">
+                        </div>
+
+                        <div class="form-group" id="prestations-container">
+                            <label for="project-prestations">Prestations</label>
+                            <input type="text" id="project-prestations" placeholder="Ex: Installation, paramétrage, formation...">
+                        </div>
+
                         <div class="form-group">
                             <label>Mode de gestion</label>
                             <div class="segmented-control">
@@ -709,6 +747,18 @@
                         <div class="form-group">
                             <label for="project-end-date">Date de fin prévue</label>
                             <input type="date" id="project-end-date">
+                        </div>
+
+                        <div class="form-group form-col-span-2">
+                            <label class="checkbox-inline-label" for="project-has-deadline-market">
+                                <input type="checkbox" id="project-has-deadline-market">
+                                <span>Marché avec échéance</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group form-col-span-2 conditional-field" id="contractual-date-container">
+                            <label for="project-contractual-date">Date de réception contractuelle *</label>
+                            <input type="date" id="project-contractual-date">
                         </div>
                     </div>
                 </div>

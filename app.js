@@ -36,11 +36,9 @@ const els = {
     themeToggleBtn: document.getElementById('theme-toggle-btn'),
     themeIconLight: document.getElementById('theme-icon-light'),
     themeIconDark: document.getElementById('theme-icon-dark'),
-    importJsonBtn: document.getElementById('import-json-btn'),
+    importDataBtn: document.getElementById('import-data-btn'),
     importFileInput: document.getElementById('import-file-input'),
-    exportJsonBtn: document.getElementById('export-json-btn'),
-    exportCsvBtn: document.getElementById('export-csv-btn'),
-    demoDataBtn: document.getElementById('demo-data-btn'),
+    exportDataBtn: document.getElementById('export-data-btn'),
     clearDemoDataBtn: document.getElementById('clear-demo-data-btn'),
     currentWeekBtn: document.getElementById('current-week-btn'),
     addProjectBtn: document.getElementById('add-project-btn'),
@@ -125,10 +123,18 @@ const els = {
     projectClient: document.getElementById('project-client'),
     projectPm: document.getElementById('project-pm'),
     projectType: document.getElementById('project-type'),
+    cloudAbonnementContainer: document.getElementById('cloud-abonnement-container'),
+    projectAbonnement: document.getElementById('project-abonnement'),
+    onpremLicencesContainer: document.getElementById('onprem-licences-container'),
+    projectLicences: document.getElementById('project-licences'),
+    projectPrestations: document.getElementById('project-prestations'),
     partnerNameContainer: document.getElementById('partner-name-container'),
     partnerName: document.getElementById('partner-name'),
     projectStartDate: document.getElementById('project-start-date'),
     projectEndDate: document.getElementById('project-end-date'),
+    projectHasDeadlineMarket: document.getElementById('project-has-deadline-market'),
+    contractualDateContainer: document.getElementById('contractual-date-container'),
+    projectContractualDate: document.getElementById('project-contractual-date'),
     
     weeklyUpdateModal: document.getElementById('weekly-update-modal'),
     weeklyUpdateForm: document.getElementById('weekly-update-form'),
@@ -153,6 +159,12 @@ const els = {
     ticketsImportInput: document.getElementById('tickets-import-input'),
     ticketsClearBtn: document.getElementById('tickets-clear-btn'),
     ticketsImportInfo: document.getElementById('tickets-import-info'),
+    ticketsStatsCard: document.getElementById('tickets-stats-card'),
+    ticketsKpiRow: document.getElementById('tickets-kpi-row'),
+    ticketsBreakdownTeam: document.getElementById('tickets-breakdown-team'),
+    ticketsBreakdownAuthor: document.getElementById('tickets-breakdown-author'),
+    ticketsBreakdownStatus: document.getElementById('tickets-breakdown-status'),
+    ticketsBreakdownPriority: document.getElementById('tickets-breakdown-priority'),
     ticketsSearchInput: document.getElementById('tickets-search-input'),
     ticketsFilterTeam: document.getElementById('tickets-filter-team'),
     ticketsFilterStatus: document.getElementById('tickets-filter-status'),
@@ -1580,6 +1592,17 @@ function updateTicketField(ticketId, field, value) {
     // Refresh filters/datalists so newly typed values become selectable, without rebuilding rows
     populateTicketDatalists();
     populateTicketFilterSelects();
+
+    // Keep the "en retard / priorité immédiate" row highlighting in sync without a full rebuild
+    if (field === 'priority' || field === 'dueDate') {
+        const rowEl = document.getElementById(`ticket-row-${ticket.id}`);
+        if (rowEl) {
+            rowEl.classList.toggle('ticket-row-critical', isTicketOverdue(ticket) || isTicketImmediatePriority(ticket));
+        }
+    }
+
+    // Statistics (counts, breakdowns) may have shifted regardless of which field changed
+    renderTicketsStats();
 }
 
 function deleteTicketRow(ticketId) {
@@ -1654,6 +1677,96 @@ function buildTicketEditableCell(ticket, field, options = {}) {
 }
 
 // Renders the interactive, editable Tickets NeoProject table (applies search + filters)
+// Returns true if the ticket has a due date that has already passed (strictly before today)
+function isTicketOverdue(ticket) {
+    if (!ticket.dueDate) return false;
+    const due = parseLocalDate(ticket.dueDate);
+    if (!due) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return due.getTime() < today.getTime();
+}
+
+// Returns true if the ticket's priority is "Immédiate" (accent/case-insensitive,
+// since the value comes from a freeform imported XLS column)
+function isTicketImmediatePriority(ticket) {
+    if (!ticket.priority) return false;
+    return normalizeHeaderKey(ticket.priority) === 'immediate';
+}
+
+// Builds a compact "name — bar — count" breakdown list for a given ticket field
+// (e.g. team, author, status, priority), sorted by descending count.
+function renderTicketBreakdown(container, tickets, field) {
+    if (!container) return;
+
+    const counts = {};
+    tickets.forEach(t => {
+        const val = (t[field] || '').trim() || 'Non renseigné';
+        counts[val] = (counts[val] || 0) + 1;
+    });
+
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+    if (entries.length === 0) {
+        container.innerHTML = '<p class="tickets-breakdown-empty">Aucune donnée.</p>';
+        return;
+    }
+
+    const maxCount = entries[0][1];
+
+    container.innerHTML = entries.map(([name, count]) => `
+        <div class="tickets-breakdown-row">
+            <span class="tickets-breakdown-name" title="${name}">${name}</span>
+            <span class="tickets-breakdown-bar-track">
+                <span class="tickets-breakdown-bar-fill" style="width: ${Math.round((count / maxCount) * 100)}%;"></span>
+            </span>
+            <span class="tickets-breakdown-count">${count}</span>
+        </div>
+    `).join('');
+}
+
+// Renders the KPI cards + breakdown lists (Équipe / Auteur / Statut / Priorité) for all
+// currently imported tickets (independent of the table's search/filters, to always show
+// the full picture).
+function renderTicketsStats() {
+    if (!els.ticketsStatsCard) return;
+
+    if (state.tickets.length === 0) {
+        els.ticketsStatsCard.style.display = 'none';
+        return;
+    }
+
+    els.ticketsStatsCard.style.display = 'block';
+
+    const overdueCount = state.tickets.filter(isTicketOverdue).length;
+    const immediateCount = state.tickets.filter(isTicketImmediatePriority).length;
+    const openTeams = new Set(state.tickets.map(t => t.team).filter(Boolean)).size;
+
+    els.ticketsKpiRow.innerHTML = `
+        <div class="tickets-kpi-card">
+            <span class="tickets-kpi-label">Total tickets</span>
+            <span class="tickets-kpi-value">${state.tickets.length}</span>
+        </div>
+        <div class="tickets-kpi-card is-danger">
+            <span class="tickets-kpi-label">Tickets en retard</span>
+            <span class="tickets-kpi-value">${overdueCount}</span>
+        </div>
+        <div class="tickets-kpi-card is-warning">
+            <span class="tickets-kpi-label">Priorité Immédiate</span>
+            <span class="tickets-kpi-value">${immediateCount}</span>
+        </div>
+        <div class="tickets-kpi-card">
+            <span class="tickets-kpi-label">Équipes impliquées</span>
+            <span class="tickets-kpi-value">${openTeams}</span>
+        </div>
+    `;
+
+    renderTicketBreakdown(els.ticketsBreakdownTeam, state.tickets, 'team');
+    renderTicketBreakdown(els.ticketsBreakdownAuthor, state.tickets, 'author');
+    renderTicketBreakdown(els.ticketsBreakdownStatus, state.tickets, 'status');
+    renderTicketBreakdown(els.ticketsBreakdownPriority, state.tickets, 'priority');
+}
+
 function renderTicketsTable() {
     if (!els.ticketsTableBody) return;
 
@@ -1669,6 +1782,7 @@ function renderTicketsTable() {
 
     populateTicketDatalists();
     populateTicketFilterSelects();
+    renderTicketsStats();
 
     // Apply search & filters
     const searchVal = (els.ticketsSearchInput.value || '').toLowerCase().trim();
@@ -1716,6 +1830,9 @@ function renderTicketsTable() {
     filtered.forEach(ticket => {
         const tr = document.createElement('tr');
         tr.id = `ticket-row-${ticket.id}`;
+        if (isTicketOverdue(ticket) || isTicketImmediatePriority(ticket)) {
+            tr.classList.add('ticket-row-critical');
+        }
 
         tr.appendChild(buildTicketEditableCell(ticket, 'team', { datalistId: 'tickets-team-datalist' }));
         tr.appendChild(buildTicketEditableCell(ticket, 'ticketId', { extraClass: 'ticket-id-input' }));
@@ -1915,7 +2032,8 @@ function loadEditorWeeklyData(project, week) {
 const BILLING_STATE_LABELS = {
     'planifié': 'Planifié',
     'facturé': 'Facturé',
-    'payé': 'Payé'
+    'payé': 'Payé',
+    'risqué': 'Risqué (à reporter)'
 };
 
 // Formats a number with French thousands separators, no fixed currency symbol
@@ -2162,6 +2280,30 @@ function renderEditorTimeline(project) {
 
 // --- PROJECT INFOS MODAL TRIGGERS ---
 
+// Shows "Abonnement" for Cloud projects, "Licences" for On Prem projects
+// ("Prestations" is common to both and always visible).
+function updateProjectTypeFieldsVisibility() {
+    if (els.projectType.value === 'Cloud') {
+        els.cloudAbonnementContainer.classList.add('visible');
+        els.onpremLicencesContainer.classList.remove('visible');
+    } else {
+        els.onpremLicencesContainer.classList.add('visible');
+        els.cloudAbonnementContainer.classList.remove('visible');
+    }
+}
+
+// Makes "Date de réception contractuelle" mandatory only when the
+// "Marché avec échéance" checkbox is ticked.
+function updateContractualDateVisibility() {
+    if (els.projectHasDeadlineMarket.checked) {
+        els.contractualDateContainer.classList.add('visible');
+        els.projectContractualDate.required = true;
+    } else {
+        els.contractualDateContainer.classList.remove('visible');
+        els.projectContractualDate.required = false;
+    }
+}
+
 function openProjectModal(projectId = null) {
     els.projectForm.reset();
     
@@ -2175,6 +2317,10 @@ function openProjectModal(projectId = null) {
         els.projectClient.value = p.client;
         els.projectPm.value = p.pm;
         els.projectType.value = p.type;
+        els.projectAbonnement.value = p.abonnement || '';
+        els.projectLicences.value = p.licences || '';
+        els.projectPrestations.value = p.prestations || '';
+        updateProjectTypeFieldsVisibility();
         
         if (p.mode === 'Partenaire') {
             document.getElementById('mode-partner').checked = true;
@@ -2189,12 +2335,22 @@ function openProjectModal(projectId = null) {
         
         els.projectStartDate.value = p.startDate || '';
         els.projectEndDate.value = p.endDate || '';
+
+        els.projectHasDeadlineMarket.checked = !!p.hasDeadlineMarket;
+        els.projectContractualDate.value = p.contractualDate || '';
+        updateContractualDateVisibility();
     } else {
         els.projectModalTitle.textContent = "Nouveau Projet";
         els.editProjectId.value = '';
         document.getElementById('mode-direct').checked = true;
         els.partnerNameContainer.classList.remove('visible');
         els.partnerName.required = false;
+
+        els.projectType.value = 'Cloud';
+        updateProjectTypeFieldsVisibility();
+
+        els.projectHasDeadlineMarket.checked = false;
+        updateContractualDateVisibility();
     }
     
     els.projectModal.classList.add('active');
@@ -2395,7 +2551,7 @@ function exportToJson() {
     
     const a = document.createElement('a');
     a.href = url;
-    a.download = `pmo_hub_export_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `neopmo_export_${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     
@@ -2404,68 +2560,7 @@ function exportToJson() {
         URL.revokeObjectURL(url);
     }, 0);
     
-    showToast("Toutes les données de projets ont été exportées en JSON.");
-}
-
-function exportToCsv() {
-    const selectedWeek = els.globalWeekSelect.value;
-    if (!selectedWeek) return;
-
-    const headers = [
-        "Nom Projet", "Client", "Chef Projet", "Type", "Mode", "Partenaire",
-        "Date Debut", "Date Fin Prevue", "Statut", "Meteo", "Avancement %", "Utilisateurs",
-        "Travaux Realises", "Etape Actuelle", "Prochaine Etape", "Points Attention", "Risques"
-    ];
-
-    const rows = [headers];
-
-    state.projects.forEach(p => {
-        const w = getProjectStatusForWeek(p, selectedWeek);
-        
-        rows.push([
-            p.name,
-            p.client,
-            p.pm,
-            p.type,
-            p.mode,
-            p.mode === 'Partenaire' ? p.partnerName : '',
-            p.startDate || '',
-            p.endDate || '',
-            w.status,
-            w.weather,
-            w.progress,
-            w.users || 0,
-            w.done || '',
-            w.currentStep || '',
-            w.nextStep || '',
-            w.blockers || '',
-            w.risks || ''
-        ]);
-    });
-
-    const csvContent = "\ufeff" + rows.map(r => r.map(val => {
-        let str = String(val).replace(/"/g, '""');
-        if (str.includes(';') || str.includes('\n') || str.includes('"')) {
-            str = `"${str}"`;
-        }
-        return str;
-    }).join(';')).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `suivi_pmo_semaine_${selectedWeek}_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    
-    setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }, 0);
-
-    showToast(`Rapport CSV de la semaine ${selectedWeek.split('-W')[1]} généré.`);
+    showToast("Toutes les données de l'application ont été exportées en JSON.");
 }
 
 function handleJsonImport(e) {
@@ -2608,6 +2703,12 @@ function setupEventListeners() {
         });
     });
 
+    // Form: Type de déploiement (Cloud <-> On Prem) toggle
+    els.projectType.addEventListener('change', updateProjectTypeFieldsVisibility);
+
+    // Form: "Marché avec échéance" checkbox toggle
+    els.projectHasDeadlineMarket.addEventListener('change', updateContractualDateVisibility);
+
     // Project metadata Form submit (Modal 1)
     els.projectForm.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -2617,10 +2718,15 @@ function setupEventListeners() {
         const client = els.projectClient.value.trim();
         const pm = els.projectPm.value.trim();
         const type = els.projectType.value;
+        const abonnement = els.projectAbonnement.value.trim();
+        const licences = els.projectLicences.value.trim();
+        const prestations = els.projectPrestations.value.trim();
         const mode = document.querySelector('input[name="project-mode"]:checked').value;
         const partner = els.partnerName.value.trim();
         const start = els.projectStartDate.value;
         const end = els.projectEndDate.value;
+        const hasDeadlineMarket = els.projectHasDeadlineMarket.checked;
+        const contractualDate = hasDeadlineMarket ? els.projectContractualDate.value : '';
 
         if (projId) {
             const pIndex = state.projects.findIndex(x => x.id === projId);
@@ -2631,10 +2737,15 @@ function setupEventListeners() {
                     client,
                     pm,
                     type,
+                    abonnement: type === 'Cloud' ? abonnement : '',
+                    licences: type === 'On Prem' ? licences : '',
+                    prestations,
                     mode,
                     partnerName: mode === 'Partenaire' ? partner : '',
                     startDate: start,
-                    endDate: end
+                    endDate: end,
+                    hasDeadlineMarket,
+                    contractualDate
                 };
                 showToast(`Projet "${name}" mis à jour.`);
             }
@@ -2645,10 +2756,15 @@ function setupEventListeners() {
                 client,
                 pm,
                 type,
+                abonnement: type === 'Cloud' ? abonnement : '',
+                licences: type === 'On Prem' ? licences : '',
+                prestations,
                 mode,
                 partnerName: mode === 'Partenaire' ? partner : '',
                 startDate: start,
                 endDate: end,
+                hasDeadlineMarket,
+                contractualDate,
                 weeklyUpdates: {},
                 billing: []
             };
@@ -2726,16 +2842,14 @@ function setupEventListeners() {
     els.addProjectBtn.addEventListener('click', () => openProjectModal());
     els.emptyAddBtn.addEventListener('click', () => openProjectModal());
     
-    // Demo data loadings
-    els.demoDataBtn.addEventListener('click', loadDemoData);
+    // Démo (chargement depuis l'état vide / suppression)
     els.emptyDemoBtn.addEventListener('click', loadDemoData);
     els.clearDemoDataBtn.addEventListener('click', clearDemoData);
     els.currentWeekBtn.addEventListener('click', goToCurrentWeek);
 
-    // Imports / Exports
-    els.exportJsonBtn.addEventListener('click', exportToJson);
-    els.exportCsvBtn.addEventListener('click', exportToCsv);
-    els.importJsonBtn.addEventListener('click', () => els.importFileInput.click());
+    // Import / Export des données de l'application (JSON)
+    els.exportDataBtn.addEventListener('click', exportToJson);
+    els.importDataBtn.addEventListener('click', () => els.importFileInput.click());
     els.importFileInput.addEventListener('change', handleJsonImport);
 
     // Close modaux
