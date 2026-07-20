@@ -512,7 +512,7 @@ function updateCharts(projectsForWeek) {
             labels: ['Planifié', 'En cours', 'En retard', 'Terminé'],
             datasets: [{
                 data: [statusCounts['planifié'], statusCounts['en cours'], statusCounts['en retard'], statusCounts['terminé']],
-                backgroundColor: ['#3b82f6', '#a855f7', '#ef4444', '#10b981'],
+                backgroundColor: ['#F6C900', '#0A6E89', '#BC2F2F', '#22AF53'],
                 borderWidth: isDark ? 2 : 1,
                 borderColor: isDark ? '#18181b' : '#ffffff'
             }]
