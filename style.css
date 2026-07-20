@@ -1601,7 +1601,7 @@ table.tickets-table td {
     font-weight: 700;
     color: var(--primary);
     background: var(--primary-glow);
-    min-width: 90px;
+ /*   min-width: 90px;  */
 }
 
 .ticket-cell-input {
