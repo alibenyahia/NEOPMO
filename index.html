@@ -974,7 +974,23 @@
         </div>
     </div>
 	</div>
-
+<!-- MODAL: Détails d'un Ticket NeoProject -->
+    <div class="modal-overlay" id="ticket-details-modal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="ticket-details-modal-title">Détails du Ticket</h2>
+                <button class="modal-close" id="ticket-details-close-btn" aria-label="Fermer"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div id="ticket-details-body" class="ticket-details-grid">
+                    <!-- Alimenté dynamiquement en JS -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="ticket-details-close-btn-2">Fermer</button>
+            </div>
+        </div>
+    </div>
     <!-- Conteneur Toast Notifications -->
     <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
