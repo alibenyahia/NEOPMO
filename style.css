@@ -1456,7 +1456,7 @@ body.light-theme .training-calendar-day {
 }
 
 .training-calendar-day.is-today {
-    border-color: var(--primary);
+    border-color: #F6C900;
     background: var(--primary-glow);
 }
 
@@ -1467,7 +1467,7 @@ body.light-theme .training-calendar-day {
 }
 
 .training-calendar-day.is-today .training-day-number {
-    color: var(--primary);
+    color: #F6C900;
 }
 
 .training-day-sessions {
