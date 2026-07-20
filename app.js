@@ -458,9 +458,9 @@ function updateCharts(projectsForWeek) {
     const weatherColors = [];
 
     const weatherColorMap = {
-        'tout va bien': '#10b981',
-        'c\'est compliqué': '#f59e0b',
-        'bloqué': '#ef4444'
+        'tout va bien': '#22AF53',
+        'c\'est compliqué': '#F6C900',
+        'bloqué': '#BC2F2F'
     };
 
     projectsForWeek.forEach(item => {
