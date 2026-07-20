@@ -485,7 +485,7 @@ function updateCharts(projectsForWeek) {
             labels: ['Tout va bien', "C'est compliqué", 'Bloqué'],
             datasets: [{
                 data: [weatherCounts['tout va bien'], weatherCounts["c'est compliqué"], weatherCounts['bloqué']],
-                backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                backgroundColor: ['#22AF53', '#F6C900', '#BC2F2F'],
                 borderWidth: isDark ? 2 : 1,
                 borderColor: isDark ? '#18181b' : '#ffffff'
             }]
@@ -878,14 +878,14 @@ function renderBillingChart() {
                 {
                     label: 'Montant Planifié',
                     data: plannedData,
-                    backgroundColor: 'rgba(59, 130, 246, 0.75)',
+                    backgroundColor: '#F6C900',
                     borderRadius: 6,
                     barThickness: 22
                 },
                 {
                     label: 'Montant Facturé / Payé',
                     data: invoicedData,
-                    backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                    backgroundColor: '#0A6E89',
                     borderRadius: 6,
                     barThickness: 22
                 }
