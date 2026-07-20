@@ -332,7 +332,7 @@ body.light-theme .tab-btn:hover {
 .chart-card {
     display: flex;
     flex-direction: column;
-    height: 320px;
+    height: 100%;
 }
 
 .chart-card h3 {
