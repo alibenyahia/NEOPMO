@@ -2230,7 +2230,7 @@ function renderEditorTimeline(project) {
         
         card.innerHTML = `
             <div class="weekly-report-header">
-                <span class="weekly-report-week" style="color: var(--primary);">Semaine ${w.split('-W')[1]} (${w.split('-W')[0]})</span>
+                <span class="weekly-report-week" style="color: #0A6E89;">Semaine ${w.split('-W')[1]} (${w.split('-W')[0]})</span>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
                     <span class="badge badge-status" data-val="${report.status}">${report.status}</span>
                     <span class="badge badge-meteo" data-val="${report.weather}">${report.weather}</span>
