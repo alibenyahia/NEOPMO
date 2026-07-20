@@ -173,6 +173,11 @@ const els = {
     ticketsTable: document.getElementById('tickets-table'),
     ticketsTableBody: document.getElementById('tickets-table-body'),
     ticketsEmptyState: document.getElementById('tickets-empty-state'),
+    ticketDetailsModal: document.getElementById('ticket-details-modal'),
+    ticketDetailsModalTitle: document.getElementById('ticket-details-modal-title'),
+    ticketDetailsCloseBtn: document.getElementById('ticket-details-close-btn'),
+    ticketDetailsCloseBtn2: document.getElementById('ticket-details-close-btn-2'),
+    ticketDetailsBody: document.getElementById('ticket-details-body'),
     ticketsTeamDatalist: document.getElementById('tickets-team-datalist'),
     ticketsTypeDatalist: document.getElementById('tickets-type-datalist'),
     ticketsStatusDatalist: document.getElementById('tickets-status-datalist'),
@@ -1617,6 +1622,58 @@ function deleteTicketRow(ticketId) {
     renderTicketsTable();
     showToast("Ticket supprimé.", "info");
 }
+// Builds one "label / value" block for the ticket details modal
+function buildTicketDetailsItem(label, value, options = {}) {
+    const isEmpty = value === undefined || value === null || value === '';
+    const displayValue = isEmpty ? 'Non renseigné' : value;
+
+    const classes = ['ticket-details-value'];
+    if (isEmpty) classes.push('is-empty');
+    if (options.critical && !isEmpty) classes.push('is-critical');
+
+    return `
+        <div class="ticket-details-item${options.span2 ? ' span-2' : ''}">
+            <span class="ticket-details-label">${label}</span>
+            <span class="${classes.join(' ')}">${displayValue}</span>
+        </div>
+    `;
+}
+
+// Opens the read-only "Détails du Ticket" modal for the given ticket
+function openTicketDetailsModal(ticketId) {
+    const ticket = state.tickets.find(t => t.id === ticketId);
+    if (!ticket) return;
+
+    const overdue = isTicketOverdue(ticket);
+    const immediate = isTicketImmediatePriority(ticket);
+
+    els.ticketDetailsModalTitle.textContent = ticket.ticketId
+        ? `Ticket ${ticket.ticketId}`
+        : 'Détails du Ticket';
+
+    els.ticketDetailsBody.innerHTML = [
+        buildTicketDetailsItem('Équipe', ticket.team),
+        buildTicketDetailsItem('ID', ticket.ticketId),
+        buildTicketDetailsItem('Sujet', ticket.subject, { span2: true }),
+        buildTicketDetailsItem('Type', ticket.type),
+        buildTicketDetailsItem('Statut', ticket.status),
+        buildTicketDetailsItem('Priorité', ticket.priority, { critical: immediate }),
+        buildTicketDetailsItem('Assigné à', ticket.assignee),
+        buildTicketDetailsItem('Auteur', ticket.author),
+        buildTicketDetailsItem('Créé le', formatDateString(ticket.createdAt)),
+        buildTicketDetailsItem(
+            'Date Échéance Souhaitée',
+            formatDateString(ticket.dueDate) + (overdue ? ' — En retard' : ''),
+            { critical: overdue }
+        )
+    ].join('');
+
+    els.ticketDetailsModal.classList.add('active');
+}
+
+function closeTicketDetailsModal() {
+    els.ticketDetailsModal.classList.remove('active');
+}
 
 // Fills the <datalist> elements used for autocompletion on free-text editable columns
 function populateTicketDatalists() {
@@ -1766,6 +1823,22 @@ function renderTicketsStats() {
     renderTicketBreakdown(els.ticketsBreakdownStatus, state.tickets, 'status');
     renderTicketBreakdown(els.ticketsBreakdownPriority, state.tickets, 'priority');
 }
+// Returns true if the ticket has a due date that has already passed (strictly before today)
+function isTicketOverdue(ticket) {
+    if (!ticket.dueDate) return false;
+    const due = parseLocalDate(ticket.dueDate);
+    if (!due) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return due.getTime() < today.getTime();
+}
+
+// Returns true if the ticket's priority is "Immédiate" (accent/case-insensitive,
+// since the value comes from a freeform imported XLS column)
+function isTicketImmediatePriority(ticket) {
+    if (!ticket.priority) return false;
+    return normalizeHeaderKey(ticket.priority) === 'immediate';
+}
 
 function renderTicketsTable() {
     if (!els.ticketsTableBody) return;
@@ -1848,10 +1921,14 @@ function renderTicketsTable() {
         const actionsTd = document.createElement('td');
         actionsTd.style.textAlign = 'right';
         actionsTd.innerHTML = `
+            <button class="btn btn-secondary btn-icon-only ticket-details-btn" title="Voir les détails du ticket">
+                <i data-lucide="eye"></i>
+            </button>
             <button class="btn btn-secondary btn-icon-only ticket-delete-btn" title="Supprimer ce ticket">
                 <i data-lucide="trash-2"></i>
             </button>
         `;
+        actionsTd.querySelector('.ticket-details-btn').addEventListener('click', () => openTicketDetailsModal(ticket.id));
         actionsTd.querySelector('.ticket-delete-btn').addEventListener('click', () => deleteTicketRow(ticket.id));
         tr.appendChild(actionsTd);
 
@@ -2882,7 +2959,13 @@ function setupEventListeners() {
 
     els.trainingModalCloseBtn.addEventListener('click', closeTrainingModal);
     els.trainingModalCancel.addEventListener('click', closeTrainingModal);
+    // --- MODALE DE DÉTAILS D'UN TICKET NEOPROJECT ---
+    els.ticketDetailsCloseBtn.addEventListener('click', closeTicketDetailsModal);
+    els.ticketDetailsCloseBtn2.addEventListener('click', closeTicketDetailsModal);
 
+    window.addEventListener('click', (e) => {
+        if (e.target === els.ticketDetailsModal) closeTicketDetailsModal();
+    });
     window.addEventListener('click', (e) => {
         if (e.target === els.trainingModal) closeTrainingModal();
     });
