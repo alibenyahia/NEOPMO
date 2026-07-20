@@ -26,10 +26,10 @@
     --weather-danger-glow: rgba(239, 68, 68, 0.15);
     
     /* Project Status Colors */
-    --status-planned: #3b82f6;     /* Blue */
-    --status-ongoing: #a855f7;     /* Purple */
-    --status-delayed: #ef4444;     /* Red */
-    --status-completed: #10b981;   /* Emerald */
+    --status-planned: #F6C900;     /* Blue */
+    --status-ongoing: #0A6E89;     /* Purple */
+    --status-delayed: #BC2F2F;     /* Red */
+    --status-completed: #22AF53;   /* Emerald */
 
     /* Glassmorphism details */
     --backdrop-blur: 12px;
