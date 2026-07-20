@@ -1942,7 +1942,7 @@ select.billing-cell-input.billing-state-select[data-val="risqué"] {
     width: 100%;
     max-width: 380px;
    /* background: var(--bg-card);*/
-	background: #0A6E89
+	background: #0A6E89;
     border: 1px solid var(--border-color);
     border-radius: 16px;
     padding: 2.25rem 2rem;
