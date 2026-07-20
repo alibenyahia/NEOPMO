@@ -1640,7 +1640,59 @@ input.ticket-cell-input[type="date"] {
     color: var(--weather-danger);
     border-color: rgba(239, 68, 68, 0.2);
 }
+.ticket-details-btn {
+    margin-right: 0.4rem;
+}
 
+/* --- MODALE DE DÉTAILS D'UN TICKET NEOPROJECT --- */
+.ticket-details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
+
+.ticket-details-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.ticket-details-item.span-2 {
+    grid-column: 1 / -1;
+}
+
+.ticket-details-item .ticket-details-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    font-weight: 700;
+}
+
+.ticket-details-item .ticket-details-value {
+    font-size: 0.95rem;
+    color: var(--text-main);
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.ticket-details-item .ticket-details-value.is-empty {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-style: italic;
+}
+
+.ticket-details-item .ticket-details-value.is-critical {
+    color: var(--weather-danger);
+}
+
+@media (max-width: 600px) {
+    .ticket-details-grid {
+        grid-template-columns: 1fr;
+    }
+}
 /* --- SUIVI DE FACTURATION PRÉVISIONNELLE (DASHBOARD) --- */
 .billing-dashboard-section {
     margin-bottom: 2rem;
