@@ -1695,9 +1695,9 @@ body.light-theme .billing-summary-card {
     color: var(--text-main);
 }
 
-.billing-summary-card.is-planned .billing-summary-value { color: var(--status-planned); }
-.billing-summary-card.is-invoiced .billing-summary-value { color: var(--status-completed); }
-.billing-summary-card.is-percent .billing-summary-value { color: var(--primary); }
+.billing-summary-card.is-planned .billing-summary-value { color: #F6C900; }
+.billing-summary-card.is-invoiced .billing-summary-value { color: #0A6E89; }
+.billing-summary-card.is-percent .billing-summary-value { color: #22AF53; }
 
 .billing-chart-wrapper {
     position: relative;
