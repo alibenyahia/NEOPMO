@@ -1542,7 +1542,7 @@ body.light-theme .training-calendar-day {
 .training-upcoming-item .training-upcoming-dates {
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--primary);
+    color: #0A6E89;
     white-space: nowrap;
 }
 
