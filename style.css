@@ -765,7 +765,7 @@ body.light-theme .project-select-card:hover {
 .select-card-progress {
     font-size: 0.8rem;
     font-weight: 700;
-    color: var(--primary);
+    color: #0A6E89;
 }
 
 .split-right-pane {
