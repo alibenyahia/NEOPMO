@@ -579,7 +579,7 @@ function updateCharts(projectsForWeek) {
 
 // --- TIMELINE ROADMAP WIDGET (DASHBOARD TAB) ---
 
-const TIMELINE_YEAR = 2026;
+const TIMELINE_YEAR = new Date().getFullYear();
 const TIMELINE_MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
 
 const TIMELINE_STATUS_COLORS = {
@@ -631,6 +631,9 @@ function computeTimelineBounds(startDateStr, endDateStr) {
 function renderTimelineRoadmap(projectsWithWeekInfo) {
     const container = document.getElementById('dashboard-timeline-grid');
     if (!container) return;
+
+    const titleEl = document.getElementById('timeline-roadmap-title');
+    if (titleEl) titleEl.textContent = `Planning Annuel des Projets (Roadmap ${TIMELINE_YEAR})`;
 
     container.innerHTML = '';
 
