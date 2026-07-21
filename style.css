@@ -20,9 +20,9 @@
     /* Project Weather / Météo Colors */
     --weather-good: #10b981;       /* Emerald */
     --weather-good-glow: rgba(16, 185, 129, 0.15);
-    --weather-warning: #f59e0b;    /* Amber */
+    --weather-warning: #F6C900;    /* Amber */
     --weather-warning-glow: rgba(245, 158, 11, 0.15);
-    --weather-danger: #ef4444;     /* Rose/Red */
+    --weather-danger: #BC2F2F;     /* Rose/Red */
     --weather-danger-glow: rgba(239, 68, 68, 0.15);
     
     /* Project Status Colors */
@@ -1157,7 +1157,7 @@ body.light-theme .weekly-report-card {
     border-radius: 6px;
     padding: 0.5rem;
     min-height: 38px;
-    border-left: 3px solid var(--primary);
+    border-left: 3px solid #0A6E89;
     white-space: pre-wrap;
 }
 
