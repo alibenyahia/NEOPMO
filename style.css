@@ -1793,11 +1793,11 @@ body.light-theme .billing-summary-card {
 .billing-month-row .billing-month-percent {
     text-align: right;
     font-weight: 800;
-    color: var(--primary);
+    color: #F6C900;
 }
 
 .billing-month-row .billing-month-percent.is-complete {
-    color: var(--status-completed);
+    color: #0A6E89;
 }
 
 @media (max-width: 700px) {
