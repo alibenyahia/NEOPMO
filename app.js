@@ -237,14 +237,18 @@ function getISOWeek(date) {
     return `${tempDate.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
-// Generate weeks list: 10 weeks back, 5 weeks forward
+// Generate weeks list: toutes les semaines ISO de l'année précédente + l'année en cours
+// (la semaine actuelle se trouve donc naturellement "centrée", ni tronquée avant ni après).
 function generateWeeksList() {
     const list = [];
-    const today = new Date();
-    for (let i = -10; i <= 5; i++) {
-        const d = new Date(today.getTime() + i * 7 * 24 * 60 * 60 * 1000);
-        list.push(getISOWeek(d));
+    const currentYear = new Date().getFullYear();
+    const startDate = new Date(currentYear - 1, 0, 1);
+    const endDate = new Date(currentYear, 11, 31);
+
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        list.push(getISOWeek(new Date(d)));
     }
+
     const uniqueWeeks = [...new Set(list)].sort();
     return uniqueWeeks;
 }
