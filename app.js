@@ -16,7 +16,8 @@ let state = {
     currentWeek: '',
     trainings: [],
     tickets: [],
-    ticketsLastImport: null
+    ticketsLastImport: null,
+    passation: null
 };
 
 // Selected project in Editor Split-View
@@ -358,6 +359,9 @@ function normalizeStateShape() {
         });
     } else {
         state.projects = [];
+    }
+    if (!state.passation || typeof state.passation !== 'object') {
+        state.passation = getDefaultPassationState();
     }
 }
 
@@ -1945,6 +1949,190 @@ function renderTicketsTable() {
     refreshIcons();
 }
 
+// --- PASSATION CM/CP : FICHE DE PASSATION PROJET ---
+
+const PASSATION_SIGNATURE_CANVAS_IDS = {
+    agent: 'passation-signature-agent',
+    chef: 'passation-signature-chef'
+};
+
+// Returns the default (empty) shape of the passation form state
+function getDefaultPassationState() {
+    return {
+        fields: {},
+        checkboxes: {},
+        hebergement: '',
+        signatureAgent: null,
+        signatureChef: null
+    };
+}
+
+// Populates every text/date/textarea/checkbox/radio field of the passation sheet from
+// state.passation, and redraws the saved signatures (if any) on their canvases.
+function renderPassationForm() {
+    if (!state.passation) state.passation = getDefaultPassationState();
+    const p = state.passation;
+
+    document.querySelectorAll('#passation-printable-area .passation-field, #passation-printable-area .passation-textarea').forEach(el => {
+        const key = el.id.replace('passation-', '');
+        el.value = p.fields[key] || '';
+    });
+
+    document.querySelectorAll('#passation-printable-area input[type="checkbox"]').forEach(cb => {
+        const key = cb.id.replace('passation-', '');
+        cb.checked = !!p.checkboxes[key];
+    });
+
+    document.querySelectorAll('#passation-printable-area input[name="passation-hebergement"]').forEach(radio => {
+        radio.checked = radio.value === p.hebergement;
+    });
+
+    ['agent', 'chef'].forEach(who => {
+        const canvas = document.getElementById(PASSATION_SIGNATURE_CANVAS_IDS[who]);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const dataUrl = who === 'agent' ? p.signatureAgent : p.signatureChef;
+        if (dataUrl) {
+            const img = new Image();
+            img.onload = () => ctx.drawImage(img, 0, 0);
+            img.src = dataUrl;
+        }
+    });
+}
+
+// Sets up mouse/touch drawing on a signature canvas, persisting the resulting image
+// (as a data URL) into state.passation once the stroke ends.
+function setupPassationSignatureCanvas(canvasId, stateKey) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    const getPos = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const point = e.touches && e.touches.length ? e.touches[0] : e;
+        return {
+            x: (point.clientX - rect.left) * scaleX,
+            y: (point.clientY - rect.top) * scaleY
+        };
+    };
+
+    const start = (e) => {
+        e.preventDefault();
+        isDrawing = true;
+        const pos = getPos(e);
+        lastX = pos.x;
+        lastY = pos.y;
+    };
+
+    const move = (e) => {
+        if (!isDrawing) return;
+        e.preventDefault();
+        const pos = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+        lastX = pos.x;
+        lastY = pos.y;
+    };
+
+    const stop = () => {
+        if (!isDrawing) return;
+        isDrawing = false;
+        state.passation[stateKey] = canvas.toDataURL();
+        saveState();
+    };
+
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    canvas.addEventListener('mouseup', stop);
+    canvas.addEventListener('mouseout', stop);
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', move, { passive: false });
+    canvas.addEventListener('touchend', stop);
+}
+
+function clearPassationSignature(who) {
+    const canvas = document.getElementById(PASSATION_SIGNATURE_CANVAS_IDS[who]);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (who === 'agent') state.passation.signatureAgent = null;
+    else state.passation.signatureChef = null;
+
+    saveState();
+}
+
+// Clears the whole passation sheet (fields, checkboxes, signatures) so it's ready
+// for a brand new handover entry.
+function resetPassationForm() {
+    const confirmed = confirm("Voulez-vous vraiment réinitialiser la fiche de passation ? Toutes les informations saisies (y compris les signatures) seront effacées pour permettre une nouvelle saisie.");
+    if (!confirmed) return;
+
+    state.passation = getDefaultPassationState();
+    saveState();
+    renderPassationForm();
+    showToast("Fiche de passation réinitialisée.", "info");
+}
+
+// Wires 'input'/'change' listeners on every field of the passation sheet so edits
+// persist automatically into state.passation. Called once at boot.
+function setupPassationFieldListeners() {
+    document.querySelectorAll('#passation-printable-area .passation-field, #passation-printable-area .passation-textarea').forEach(el => {
+        const key = el.id.replace('passation-', '');
+        el.addEventListener('input', () => {
+            state.passation.fields[key] = el.value;
+            saveState();
+        });
+    });
+
+    document.querySelectorAll('#passation-printable-area input[type="checkbox"]').forEach(cb => {
+        const key = cb.id.replace('passation-', '');
+        cb.addEventListener('change', () => {
+            state.passation.checkboxes[key] = cb.checked;
+            saveState();
+        });
+    });
+
+    document.querySelectorAll('#passation-printable-area input[name="passation-hebergement"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            if (radio.checked) {
+                state.passation.hebergement = radio.value;
+                saveState();
+            }
+        });
+    });
+
+    setupPassationSignatureCanvas(PASSATION_SIGNATURE_CANVAS_IDS.agent, 'signatureAgent');
+    setupPassationSignatureCanvas(PASSATION_SIGNATURE_CANVAS_IDS.chef, 'signatureChef');
+
+    const clearAgentBtn = document.getElementById('passation-clear-signature-agent');
+    const clearChefBtn = document.getElementById('passation-clear-signature-chef');
+    if (clearAgentBtn) clearAgentBtn.addEventListener('click', () => clearPassationSignature('agent'));
+    if (clearChefBtn) clearChefBtn.addEventListener('click', () => clearPassationSignature('chef'));
+
+    const printBtn = document.getElementById('passation-print-btn');
+    const resetBtn = document.getElementById('passation-reset-btn');
+    if (printBtn) printBtn.addEventListener('click', () => window.print());
+    if (resetBtn) resetBtn.addEventListener('click', resetPassationForm);
+}
+
 // --- TAB NAV SYSTEM ---
 
 function initTabSystem() {
@@ -1975,6 +2163,8 @@ function initTabSystem() {
                 renderTrainingCalendar();
             } else if (targetId === 'tab-tickets') {
                 renderTicketsTable();
+            } else if (targetId === 'tab-passation') {
+                renderPassationForm();
             }
         });
     });
@@ -3136,6 +3326,10 @@ async function bootApp() {
     }
 
     renderDashboard();
+
+    // Fiche de Passation CM/CP : listeners une seule fois, puis population initiale
+    setupPassationFieldListeners();
+    renderPassationForm();
 
     refreshIcons();
     hideLoadingOverlay();
