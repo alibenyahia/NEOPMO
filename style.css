@@ -2164,7 +2164,7 @@ table.tickets-table tr.ticket-row-critical {
 }
 
 .passation-section-title {
-    background: var(--primary);
+    background: #0A6E89;
     color: white;
     padding: 0.6rem 1rem;
     border-radius: 8px;
