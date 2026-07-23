@@ -17,7 +17,8 @@ let state = {
     trainings: [],
     tickets: [],
     ticketsLastImport: null,
-    passation: null
+    passation: null,
+    passationCsm: null
 };
 
 // Selected project in Editor Split-View
@@ -362,6 +363,9 @@ function normalizeStateShape() {
     }
     if (!state.passation || typeof state.passation !== 'object') {
         state.passation = getDefaultPassationState();
+    }
+    if (!state.passationCsm || typeof state.passationCsm !== 'object') {
+        state.passationCsm = getDefaultPassationState();
     }
 }
 
@@ -1949,14 +1953,12 @@ function renderTicketsTable() {
     refreshIcons();
 }
 
-// --- PASSATION CM/CP : FICHE DE PASSATION PROJET ---
+// --- FICHES DE PASSATION (GÉNÉRIQUE) : CM/CP ET CP/CSM ---
+// Les deux fiches de passation partagent exactement la même mécanique (champs texte/date,
+// cases à cocher, radio, signatures, impression, réinitialisation) ; seuls le préfixe des
+// identifiants HTML et la clé de state diffèrent. On factorise donc la logique une seule fois.
 
-const PASSATION_SIGNATURE_CANVAS_IDS = {
-    agent: 'passation-signature-agent',
-    chef: 'passation-signature-chef'
-};
-
-// Returns the default (empty) shape of the passation form state
+// Returns the default (empty) shape of a passation-style form state
 function getDefaultPassationState() {
     return {
         fields: {},
@@ -1967,45 +1969,9 @@ function getDefaultPassationState() {
     };
 }
 
-// Populates every text/date/textarea/checkbox/radio field of the passation sheet from
-// state.passation, and redraws the saved signatures (if any) on their canvases.
-function renderPassationForm() {
-    if (!state.passation) state.passation = getDefaultPassationState();
-    const p = state.passation;
-
-    document.querySelectorAll('#passation-printable-area .passation-field, #passation-printable-area .passation-textarea').forEach(el => {
-        const key = el.id.replace('passation-', '');
-        el.value = p.fields[key] || '';
-    });
-
-    document.querySelectorAll('#passation-printable-area input[type="checkbox"]').forEach(cb => {
-        const key = cb.id.replace('passation-', '');
-        cb.checked = !!p.checkboxes[key];
-    });
-
-    document.querySelectorAll('#passation-printable-area input[name="passation-hebergement"]').forEach(radio => {
-        radio.checked = radio.value === p.hebergement;
-    });
-
-    ['agent', 'chef'].forEach(who => {
-        const canvas = document.getElementById(PASSATION_SIGNATURE_CANVAS_IDS[who]);
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        const dataUrl = who === 'agent' ? p.signatureAgent : p.signatureChef;
-        if (dataUrl) {
-            const img = new Image();
-            img.onload = () => ctx.drawImage(img, 0, 0);
-            img.src = dataUrl;
-        }
-    });
-}
-
-// Sets up mouse/touch drawing on a signature canvas, persisting the resulting image
-// (as a data URL) into state.passation once the stroke ends.
-function setupPassationSignatureCanvas(canvasId, stateKey) {
+// Sets up mouse/touch drawing on a signature canvas. `onSave` is called with the resulting
+// image (data URL) once a stroke ends, so the caller decides where to persist it.
+function setupSignatureCanvas(canvasId, onSave) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -2053,8 +2019,7 @@ function setupPassationSignatureCanvas(canvasId, stateKey) {
     const stop = () => {
         if (!isDrawing) return;
         isDrawing = false;
-        state.passation[stateKey] = canvas.toDataURL();
-        saveState();
+        onSave(canvas.toDataURL());
     };
 
     canvas.addEventListener('mousedown', start);
@@ -2066,72 +2031,161 @@ function setupPassationSignatureCanvas(canvasId, stateKey) {
     canvas.addEventListener('touchend', stop);
 }
 
-function clearPassationSignature(who) {
-    const canvas = document.getElementById(PASSATION_SIGNATURE_CANVAS_IDS[who]);
+function clearSignatureCanvas(canvasId) {
+    const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    if (who === 'agent') state.passation.signatureAgent = null;
-    else state.passation.signatureChef = null;
-
-    saveState();
 }
 
-// Clears the whole passation sheet (fields, checkboxes, signatures) so it's ready
-// for a brand new handover entry.
-function resetPassationForm() {
-    const confirmed = confirm("Voulez-vous vraiment réinitialiser la fiche de passation ? Toutes les informations saisies (y compris les signatures) seront effacées pour permettre une nouvelle saisie.");
-    if (!confirmed) return;
+/**
+ * Builds a fully working controller (render / setupListeners / reset) for one passation sheet.
+ * @param {Object} config
+ * @param {string} config.stateKey       - property name under `state` holding this sheet's data
+ * @param {string} config.idPrefix       - HTML id prefix used by all fields of this sheet (e.g. "passation-")
+ * @param {string} config.printableAreaId
+ * @param {{agent: string, chef: string}} config.signatureIds
+ * @param {{agent: string, chef: string}} config.clearSignatureBtnIds
+ * @param {string} config.printBtnId
+ * @param {string} config.resetBtnId
+ * @param {string} config.confirmMessage
+ */
+function createPassationController(config) {
+    const scopeSelector = `#${config.printableAreaId}`;
 
-    state.passation = getDefaultPassationState();
-    saveState();
-    renderPassationForm();
-    showToast("Fiche de passation réinitialisée.", "info");
-}
+    function getData() {
+        if (!state[config.stateKey]) state[config.stateKey] = getDefaultPassationState();
+        return state[config.stateKey];
+    }
 
-// Wires 'input'/'change' listeners on every field of the passation sheet so edits
-// persist automatically into state.passation. Called once at boot.
-function setupPassationFieldListeners() {
-    document.querySelectorAll('#passation-printable-area .passation-field, #passation-printable-area .passation-textarea').forEach(el => {
-        const key = el.id.replace('passation-', '');
-        el.addEventListener('input', () => {
-            state.passation.fields[key] = el.value;
-            saveState();
+    function render() {
+        const data = getData();
+
+        document.querySelectorAll(`${scopeSelector} .passation-field, ${scopeSelector} .passation-textarea`).forEach(el => {
+            const key = el.id.replace(config.idPrefix, '');
+            el.value = data.fields[key] || '';
         });
-    });
 
-    document.querySelectorAll('#passation-printable-area input[type="checkbox"]').forEach(cb => {
-        const key = cb.id.replace('passation-', '');
-        cb.addEventListener('change', () => {
-            state.passation.checkboxes[key] = cb.checked;
-            saveState();
+        document.querySelectorAll(`${scopeSelector} input[type="checkbox"]`).forEach(cb => {
+            const key = cb.id.replace(config.idPrefix, '');
+            cb.checked = !!data.checkboxes[key];
         });
-    });
 
-    document.querySelectorAll('#passation-printable-area input[name="passation-hebergement"]').forEach(radio => {
-        radio.addEventListener('change', () => {
-            if (radio.checked) {
-                state.passation.hebergement = radio.value;
-                saveState();
+        document.querySelectorAll(`${scopeSelector} input[name="${config.idPrefix}hebergement"]`).forEach(radio => {
+            radio.checked = radio.value === data.hebergement;
+        });
+
+        ['agent', 'chef'].forEach(who => {
+            const canvas = document.getElementById(config.signatureIds[who]);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const dataUrl = who === 'agent' ? data.signatureAgent : data.signatureChef;
+            if (dataUrl) {
+                const img = new Image();
+                img.onload = () => ctx.drawImage(img, 0, 0);
+                img.src = dataUrl;
             }
         });
-    });
+    }
 
-    setupPassationSignatureCanvas(PASSATION_SIGNATURE_CANVAS_IDS.agent, 'signatureAgent');
-    setupPassationSignatureCanvas(PASSATION_SIGNATURE_CANVAS_IDS.chef, 'signatureChef');
+    function reset() {
+        const confirmed = confirm(config.confirmMessage);
+        if (!confirmed) return;
 
-    const clearAgentBtn = document.getElementById('passation-clear-signature-agent');
-    const clearChefBtn = document.getElementById('passation-clear-signature-chef');
-    if (clearAgentBtn) clearAgentBtn.addEventListener('click', () => clearPassationSignature('agent'));
-    if (clearChefBtn) clearChefBtn.addEventListener('click', () => clearPassationSignature('chef'));
+        state[config.stateKey] = getDefaultPassationState();
+        saveState();
+        render();
+        showToast("Fiche de passation réinitialisée.", "info");
+    }
 
-    const printBtn = document.getElementById('passation-print-btn');
-    const resetBtn = document.getElementById('passation-reset-btn');
-    if (printBtn) printBtn.addEventListener('click', () => window.print());
-    if (resetBtn) resetBtn.addEventListener('click', resetPassationForm);
+    function setupListeners() {
+        document.querySelectorAll(`${scopeSelector} .passation-field, ${scopeSelector} .passation-textarea`).forEach(el => {
+            const key = el.id.replace(config.idPrefix, '');
+            el.addEventListener('input', () => {
+                getData().fields[key] = el.value;
+                saveState();
+            });
+        });
+
+        document.querySelectorAll(`${scopeSelector} input[type="checkbox"]`).forEach(cb => {
+            const key = cb.id.replace(config.idPrefix, '');
+            cb.addEventListener('change', () => {
+                getData().checkboxes[key] = cb.checked;
+                saveState();
+            });
+        });
+
+        document.querySelectorAll(`${scopeSelector} input[name="${config.idPrefix}hebergement"]`).forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (radio.checked) {
+                    getData().hebergement = radio.value;
+                    saveState();
+                }
+            });
+        });
+
+        setupSignatureCanvas(config.signatureIds.agent, (dataUrl) => {
+            getData().signatureAgent = dataUrl;
+            saveState();
+        });
+        setupSignatureCanvas(config.signatureIds.chef, (dataUrl) => {
+            getData().signatureChef = dataUrl;
+            saveState();
+        });
+
+        const clearAgentBtn = document.getElementById(config.clearSignatureBtnIds.agent);
+        const clearChefBtn = document.getElementById(config.clearSignatureBtnIds.chef);
+        if (clearAgentBtn) {
+            clearAgentBtn.addEventListener('click', () => {
+                clearSignatureCanvas(config.signatureIds.agent);
+                getData().signatureAgent = null;
+                saveState();
+            });
+        }
+        if (clearChefBtn) {
+            clearChefBtn.addEventListener('click', () => {
+                clearSignatureCanvas(config.signatureIds.chef);
+                getData().signatureChef = null;
+                saveState();
+            });
+        }
+
+        const printBtn = document.getElementById(config.printBtnId);
+        const resetBtn = document.getElementById(config.resetBtnId);
+        if (printBtn) printBtn.addEventListener('click', () => window.print());
+        if (resetBtn) resetBtn.addEventListener('click', reset);
+    }
+
+    return { render, setupListeners, reset };
 }
+
+// Fiche 1 : Passation Commercial -> Chef de Projet (CM/CP)
+const passationCmCpController = createPassationController({
+    stateKey: 'passation',
+    idPrefix: 'passation-',
+    printableAreaId: 'passation-printable-area',
+    signatureIds: { agent: 'passation-signature-agent', chef: 'passation-signature-chef' },
+    clearSignatureBtnIds: { agent: 'passation-clear-signature-agent', chef: 'passation-clear-signature-chef' },
+    printBtnId: 'passation-print-btn',
+    resetBtnId: 'passation-reset-btn',
+    confirmMessage: "Voulez-vous vraiment réinitialiser la fiche de passation CM/CP ? Toutes les informations saisies (y compris les signatures) seront effacées pour permettre une nouvelle saisie."
+});
+
+// Fiche 2 : Passation Chef de Projet -> CSM (CP/CSM)
+const passationCpCsmController = createPassationController({
+    stateKey: 'passationCsm',
+    idPrefix: 'pcsm-',
+    printableAreaId: 'pcsm-printable-area',
+    signatureIds: { agent: 'pcsm-signature-agent', chef: 'pcsm-signature-chef' },
+    clearSignatureBtnIds: { agent: 'pcsm-clear-signature-agent', chef: 'pcsm-clear-signature-chef' },
+    printBtnId: 'pcsm-print-btn',
+    resetBtnId: 'pcsm-reset-btn',
+    confirmMessage: "Voulez-vous vraiment réinitialiser la fiche de passation CP/CSM ? Toutes les informations saisies (y compris les signatures) seront effacées pour permettre une nouvelle saisie."
+});
 
 // --- TAB NAV SYSTEM ---
 
@@ -2164,7 +2218,9 @@ function initTabSystem() {
             } else if (targetId === 'tab-tickets') {
                 renderTicketsTable();
             } else if (targetId === 'tab-passation') {
-                renderPassationForm();
+                passationCmCpController.render();
+            } else if (targetId === 'tab-passation-csm') {
+                passationCpCsmController.render();
             }
         });
     });
@@ -3327,9 +3383,11 @@ async function bootApp() {
 
     renderDashboard();
 
-    // Fiche de Passation CM/CP : listeners une seule fois, puis population initiale
-    setupPassationFieldListeners();
-    renderPassationForm();
+    // Fiches de Passation (CM/CP et CP/CSM) : listeners une seule fois, puis population initiale
+    passationCmCpController.setupListeners();
+    passationCmCpController.render();
+    passationCpCsmController.setupListeners();
+    passationCpCsmController.render();
 
     refreshIcons();
     hideLoadingOverlay();

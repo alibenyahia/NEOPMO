@@ -126,6 +126,9 @@
             <button class="tab-btn" id="tab-btn-passation" data-tab="tab-passation">
                 <i data-lucide="clipboard-check"></i> Passation CM/CP
             </button>
+			<button class="tab-btn" id="tab-btn-passation-csm" data-tab="tab-passation-csm">
+                <i data-lucide="clipboard-check"></i> Passation CP/CSM
+            </button>
         </nav>
 
         <!-- CONTENU 1: TABLEAU DE BORD (DASHBOARD) -->
@@ -925,6 +928,231 @@
                             <canvas id="passation-signature-chef" class="passation-signature-canvas" width="350" height="150"></canvas>
                             <div class="no-print" style="margin-top: 0.6rem;">
                                 <button type="button" class="btn btn-secondary" id="passation-clear-signature-chef">Effacer la signature</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </div>
+	
+	
+	<!-- CONTENU: PASSATION CP/CSM (FICHE DE PASSATION CHEF DE PROJET -> CSM) -->
+    <div class="tab-content" id="tab-passation-csm" style="display: none;">
+        <section class="main-section" aria-label="Fiche de passation Chef de Projet vers CSM">
+
+            <!-- Barre d'actions (non imprimée) -->
+            <div class="card no-print" style="margin-bottom: 1.5rem;">
+                <div class="passation-toolbar">
+                    <div>
+                        <h3 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="clipboard-check" style="color: var(--primary);"></i>
+                            Fiche de Passation Projet (CP / CSM)
+                        </h3>
+                        <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: 0.35rem;">
+                            Remplissez la fiche ci-dessous, imprimez-la en PDF, puis réinitialisez-la avant une nouvelle saisie.
+                        </p>
+                    </div>
+                    <div class="passation-toolbar-actions">
+                        <button type="button" class="btn btn-secondary" id="pcsm-reset-btn" style="color: var(--weather-danger); border-color: rgba(239, 68, 68, 0.3);">
+                            <i data-lucide="rotate-ccw"></i> Réinitialiser
+                        </button>
+                        <button type="button" class="btn btn-primary" id="pcsm-print-btn">
+                            <i data-lucide="printer"></i> Imprimer / Exporter en PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zone imprimable -->
+            <div id="pcsm-printable-area" class="printable-passation-sheet">
+
+                <div class="card passation-print-header">
+                    <div class="passation-print-header-inner">
+                        <img src="neo2.png" alt="Logo entreprise" class="passation-logo">
+                        <div class="passation-print-header-text">
+                            <h2>Fiche de Passation Projet (CP / CSM)</h2>
+                            <p>
+                                <strong>Référence Projet :</strong>
+                                <input type="text" class="passation-field" id="pcsm-reference" placeholder="Ex: PRJ-2026-014">
+                                &nbsp;|&nbsp;
+                                <strong>Date de Passation :</strong>
+                                <input type="date" class="passation-field" id="pcsm-date">
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 1. Informations Générales du Projet -->
+                <div class="card passation-section">
+                    <h4 class="passation-section-title">1. Informations Générales du Projet</h4>
+                    <table class="passation-table">
+                        <tr>
+                            <th>Nom du client</th>
+                            <td><input type="text" class="passation-field" id="pcsm-client-societe" placeholder="Ex: Ministère de l'Intérieur"></td>
+                        </tr>
+                        <tr>
+                            <th>Contact</th>
+                            <td>
+                                <div class="passation-contact-grid">
+                                    <div class="passation-contact-field">
+                                        <label>Nom</label>
+                                        <input type="text" class="passation-field" id="pcsm-contact-nom" placeholder="Nom complet">
+                                    </div>
+                                    <div class="passation-contact-field">
+                                        <label>Tél</label>
+                                        <input type="text" class="passation-field" id="pcsm-contact-tel" placeholder="Téléphone">
+                                    </div>
+                                    <div class="passation-contact-field">
+                                        <label>Email</label>
+                                        <input type="email" class="passation-field" id="pcsm-contact-email" placeholder="Email">
+                                    </div>
+                                    <div class="passation-contact-field">
+                                        <label>Poste</label>
+                                        <input type="text" class="passation-field" id="pcsm-contact-poste" placeholder="Fonction">
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Sponsor / Décideur (Nom, Tel, Email)</th>
+                            <td><input type="text" class="passation-field" id="pcsm-sponsor" placeholder="Nom, téléphone, email"></td>
+                        </tr>
+                        <tr>
+                            <th>Chef de Projet</th>
+                            <td><input type="text" class="passation-field" id="pcsm-chef-projet"></td>
+                        </tr>
+                        <tr>
+                            <th>CSM</th>
+                            <td><input type="text" class="passation-field" id="pcsm-csm"></td>
+                        </tr>
+                        <tr>
+                            <th>Date de réception provisoire</th>
+                            <td><input type="date" class="passation-field" id="pcsm-date-reception-provisoire"></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- 2. Livrables et Documentation Remis -->
+                <div class="card passation-section">
+                    <h4 class="passation-section-title">2. Livrables et Documentation Remis</h4>
+                    <div class="passation-checklist">
+                        <label class="checkbox-inline-label"><input type="checkbox" id="pcsm-doc-paq"><span>PAQ</span></label>
+                        <label class="checkbox-inline-label"><input type="checkbox" id="pcsm-doc-planning"><span>Planning</span></label>
+                        <label class="checkbox-inline-label"><input type="checkbox" id="pcsm-doc-dsf"><span>DSF</span></label>
+                        <label class="checkbox-inline-label"><input type="checkbox" id="pcsm-doc-pv-reception"><span>PVs de réception</span></label>
+                        <label class="checkbox-inline-label">
+                            <input type="checkbox" id="pcsm-doc-autres">
+                            <span>Autres :</span>
+                        </label>
+                        <input type="text" class="passation-field" id="pcsm-doc-autres-detail" placeholder="Préciser" style="max-width: 260px;">
+                    </div>
+
+                    <p class="passation-label-inline">Emplacement de la documentation :</p>
+                    <input type="text" class="passation-field" id="pcsm-emplacement-doc" placeholder="Ex: Espace partagé, SharePoint, Google Drive...">
+                </div>
+
+                <!-- 3. Bilan du Projet -->
+                <div class="card passation-section">
+                    <h4 class="passation-section-title">3. Bilan du Projet</h4>
+
+                    <p class="passation-label-inline">Modules installés :</p>
+                    <div class="passation-checklist">
+                        <label class="checkbox-inline-label"><input type="checkbox" id="pcsm-module-gec"><span>GEC</span></label>
+                        <label class="checkbox-inline-label"><input type="checkbox" id="pcsm-module-ged"><span>GED</span></label>
+                        <label class="checkbox-inline-label"><input type="checkbox" id="pcsm-module-bpm"><span>Workflows Métiers BPM</span></label>
+                        <label class="checkbox-inline-label"><input type="checkbox" id="pcsm-module-sae"><span>SAE</span></label>
+                        <label class="checkbox-inline-label"><input type="checkbox" id="pcsm-module-grc"><span>GRC</span></label>
+                        <label class="checkbox-inline-label">
+                            <input type="checkbox" id="pcsm-module-autre">
+                            <span>Autre :</span>
+                        </label>
+                        <input type="text" class="passation-field" id="pcsm-module-autre-detail" placeholder="Préciser" style="max-width: 260px;">
+                    </div>
+
+                    <p class="passation-label-inline">Licences :</p>
+                    <table class="passation-table">
+                        <tr>
+                            <th>Licences Elise</th>
+                            <td><input type="text" class="passation-field" id="pcsm-licence-elise"></td>
+                        </tr>
+                        <tr>
+                            <th>Licences Elise Flow</th>
+                            <td><input type="text" class="passation-field" id="pcsm-licence-elise-flow"></td>
+                        </tr>
+                        <tr>
+                            <th>Licences Elise Mobile</th>
+                            <td><input type="text" class="passation-field" id="pcsm-licence-elise-mobile"></td>
+                        </tr>
+                    </table>
+
+                    <p class="passation-label-inline">Mode d'Hébergement :</p>
+                    <div class="passation-radio-group">
+                        <label class="checkbox-inline-label"><input type="radio" name="pcsm-hebergement" id="pcsm-hebergement-cloud" value="Cloud"><span>Cloud</span></label>
+                        <label class="checkbox-inline-label"><input type="radio" name="pcsm-hebergement" id="pcsm-hebergement-onprem" value="On-Premise"><span>On-Premise (Chez le client)</span></label>
+                    </div>
+                </div>
+
+                <!-- 4. Environnements et Accès -->
+                <div class="card passation-section">
+                    <h4 class="passation-section-title">4. Environnements et Accès</h4>
+                    <table class="passation-table">
+                        <tr>
+                            <th>Environnement</th>
+                            <th>URL</th>
+                            <th>Identifiants</th>
+                        </tr>
+                        <tr>
+                            <th>Production</th>
+                            <td><input type="text" class="passation-field" id="pcsm-env-prod-url" placeholder="URL"></td>
+                            <td><input type="text" class="passation-field" id="pcsm-env-prod-identifiants" placeholder="Identifiants"></td>
+                        </tr>
+                        <tr>
+                            <th>Pré-production / Formation</th>
+                            <td><input type="text" class="passation-field" id="pcsm-env-preprod-url" placeholder="URL"></td>
+                            <td><input type="text" class="passation-field" id="pcsm-env-preprod-identifiants" placeholder="Identifiants"></td>
+                        </tr>
+                        <tr>
+                            <th>Test / Développement</th>
+                            <td><input type="text" class="passation-field" id="pcsm-env-test-url" placeholder="URL"></td>
+                            <td><input type="text" class="passation-field" id="pcsm-env-test-identifiants" placeholder="Identifiants"></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- 5. Points d'Attention et Recommandations -->
+                <div class="card passation-section">
+                    <h4 class="passation-section-title">5. Points d'Attention et Recommandations</h4>
+
+                    <p class="passation-label-inline">Points sensibles identifiés :</p>
+                    <textarea class="passation-textarea" id="pcsm-points-sensibles"></textarea>
+
+                    <p class="passation-label-inline">Recommandations pour le suivi :</p>
+                    <textarea class="passation-textarea" id="pcsm-recommandations"></textarea>
+
+                    <p class="passation-label-inline">Prochaines échéances :</p>
+                    <textarea class="passation-textarea" id="pcsm-echeances"></textarea>
+                </div>
+
+                <!-- 6. Validation -->
+                <div class="card passation-section">
+                    <h4 class="passation-section-title">6. Validation de la Passation</h4>
+                    <div class="passation-signature-area">
+                        <div class="passation-signature-block">
+                            <p><strong>Signature Chef de Projet :</strong></p>
+                            <p class="passation-signature-caption">Je soussigné certifie avoir transmis l'intégralité des informations et documents relatifs au projet au CSM désigné.</p>
+                            <canvas id="pcsm-signature-agent" class="passation-signature-canvas" width="350" height="150"></canvas>
+                            <div class="no-print" style="margin-top: 0.6rem;">
+                                <button type="button" class="btn btn-secondary" id="pcsm-clear-signature-agent">Effacer la signature</button>
+                            </div>
+                        </div>
+                        <div class="passation-signature-block">
+                            <p><strong>Signature CSM :</strong></p>
+                            <p class="passation-signature-caption">Je soussigné accuse réception des éléments de passation pour le projet et en prends la responsabilité à compter de cette date.</p>
+                            <canvas id="pcsm-signature-chef" class="passation-signature-canvas" width="350" height="150"></canvas>
+                            <div class="no-print" style="margin-top: 0.6rem;">
+                                <button type="button" class="btn btn-secondary" id="pcsm-clear-signature-chef">Effacer la signature</button>
                             </div>
                         </div>
                     </div>
