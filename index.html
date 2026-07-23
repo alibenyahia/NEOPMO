@@ -1217,6 +1217,20 @@
 								<label for="coffre-ip">Adresse IP *</label>
 								<input type="text" id="coffre-ip" placeholder="192.168.1.100">
 							</div>
+							
+							<!-- Dans la section du formulaire, après le champ IP -->
+							<div class="form-group" id="coffre-serveur-container" style="display: none;">
+								<label for="coffre-serveur">Serveur *</label>
+								<select id="coffre-serveur">
+									<option value="">Sélectionner...</option>
+									<option value="Elise">Elise</option>
+									<option value="DocFactory">DocFactory</option>
+									<option value="SQL Server">SQL Server</option>
+									<option value="AIO">AIO</option>
+									<option value="Autre">Autre (à préciser)</option>
+								</select>
+								<input type="text" id="coffre-serveur-autre" placeholder="Précisez le serveur..." style="display: none; margin-top: 0.5rem;">
+							</div>
 
 							<div class="form-group" id="coffre-env-container" style="display: none;">
 								<label for="coffre-env">Environnement *</label>

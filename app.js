@@ -2230,7 +2230,6 @@ function generateSecurePassword(length = 16) {
     return password;
 }
 
-// Rendu du tableau des entrées du coffre-fort
 function renderCoffreTable() {
     const entries = getCoffreState();
     const searchTerm = (document.getElementById('coffre-search')?.value || '').toLowerCase().trim();
@@ -2249,7 +2248,8 @@ function renderCoffreTable() {
             e.type?.toLowerCase().includes(searchTerm) ||
             e.url?.toLowerCase().includes(searchTerm) ||
             e.ip?.toLowerCase().includes(searchTerm) ||
-            e.environnement?.toLowerCase().includes(searchTerm)
+            e.environnement?.toLowerCase().includes(searchTerm) ||
+            e.serveur?.toLowerCase().includes(searchTerm)
         )
         : entries;
 
@@ -2277,7 +2277,7 @@ function renderCoffreTable() {
         } else if (entry.type === 'webdav') {
             targetDisplay = entry.url || '-';
         } else if (entry.type === 'rdp') {
-            targetDisplay = entry.ip || '-';
+            targetDisplay = entry.serveur ? `${entry.serveur} (${entry.ip || '-'})` : (entry.ip || '-');
         }
 
         // Affichage du mot de passe masqué
@@ -2436,6 +2436,21 @@ function editCoffreEntry(id) {
     document.getElementById('coffre-identifiant').value = entry.identifiant || '';
     document.getElementById('coffre-motdepasse').value = decryptPassword(entry.motdepasse || '');
     document.getElementById('coffre-notes').value = entry.notes || '';
+    
+    // Remplir le serveur
+    const serveurSelect = document.getElementById('coffre-serveur');
+    const serveurAutre = document.getElementById('coffre-serveur-autre');
+    if (entry.serveur) {
+        const optionExists = Array.from(serveurSelect.options).some(opt => opt.value === entry.serveur);
+        if (optionExists) {
+            serveurSelect.value = entry.serveur;
+            serveurAutre.style.display = 'none';
+        } else {
+            serveurSelect.value = 'Autre';
+            serveurAutre.style.display = 'block';
+            serveurAutre.value = entry.serveur;
+        }
+    }
 
     // Mettre à jour les champs dynamiques
     updateCoffreFields(entry.type || '');
@@ -2460,11 +2475,13 @@ function updateCoffreFields(type) {
     const urlContainer = document.getElementById('coffre-url-container');
     const ipContainer = document.getElementById('coffre-ip-container');
     const envContainer = document.getElementById('coffre-env-container');
+    const serveurContainer = document.getElementById('coffre-serveur-container');
 
     // Cacher tous
     if (urlContainer) urlContainer.style.display = 'none';
     if (ipContainer) ipContainer.style.display = 'none';
     if (envContainer) envContainer.style.display = 'none';
+    if (serveurContainer) serveurContainer.style.display = 'none';
 
     // Afficher selon le type
     if (type === 'environnement') {
@@ -2473,20 +2490,25 @@ function updateCoffreFields(type) {
         document.getElementById('coffre-url').required = true;
         document.getElementById('coffre-env').required = true;
         document.getElementById('coffre-ip').required = false;
+        document.getElementById('coffre-serveur').required = false;
     } else if (type === 'webdav') {
         if (urlContainer) urlContainer.style.display = 'block';
         document.getElementById('coffre-url').required = true;
         document.getElementById('coffre-env').required = false;
         document.getElementById('coffre-ip').required = false;
+        document.getElementById('coffre-serveur').required = false;
     } else if (type === 'rdp') {
         if (ipContainer) ipContainer.style.display = 'block';
+        if (serveurContainer) serveurContainer.style.display = 'block';
         document.getElementById('coffre-ip').required = true;
+        document.getElementById('coffre-serveur').required = true;
         document.getElementById('coffre-url').required = false;
         document.getElementById('coffre-env').required = false;
     } else {
         document.getElementById('coffre-url').required = false;
         document.getElementById('coffre-ip').required = false;
         document.getElementById('coffre-env').required = false;
+        document.getElementById('coffre-serveur').required = false;
     }
 }
 
@@ -2531,111 +2553,139 @@ function setupCoffreListeners() {
     // Recherche
     document.getElementById('coffre-search').addEventListener('input', renderCoffreTable);
 
-    // Bouton annuler / reset
-    document.getElementById('coffre-cancel-btn').addEventListener('click', () => {
-        document.getElementById('coffre-form').reset();
-        document.getElementById('coffre-submit-btn').innerHTML = '<i data-lucide="save"></i> Ajouter';
-        document.getElementById('coffre-submit-btn').dataset.editId = '';
-        document.querySelector('#coffre-form h3').innerHTML = `
-            <i data-lucide="plus-circle" style="color: #F6C900;"></i>
-            Ajouter une entrée
-        `;
-        updateCoffreFields('');
-        document.getElementById('coffre-url').required = false;
-        document.getElementById('coffre-ip').required = false;
-        document.getElementById('coffre-env').required = false;
-    });
+	// Bouton annuler / reset
+	document.getElementById('coffre-cancel-btn').addEventListener('click', () => {
+		document.getElementById('coffre-form').reset();
+		document.getElementById('coffre-submit-btn').innerHTML = '<i data-lucide="save"></i> Ajouter';
+		document.getElementById('coffre-submit-btn').dataset.editId = '';
+		document.querySelector('#coffre-form h3').innerHTML = `
+			<i data-lucide="plus-circle" style="color: #F6C900;"></i>
+			Ajouter une entrée
+		`;
+		updateCoffreFields('');
+		document.getElementById('coffre-url').required = false;
+		document.getElementById('coffre-ip').required = false;
+		document.getElementById('coffre-env').required = false;
+		document.getElementById('coffre-serveur').required = false;
+		document.getElementById('coffre-serveur-autre').style.display = 'none';
+	});
+	
+	// Gestion du champ "Autre" pour le serveur
+	document.getElementById('coffre-serveur').addEventListener('change', (e) => {
+		const autreInput = document.getElementById('coffre-serveur-autre');
+		if (e.target.value === 'Autre') {
+			autreInput.style.display = 'block';
+			autreInput.required = true;
+			autreInput.focus();
+		} else {
+			autreInput.style.display = 'none';
+			autreInput.required = false;
+			autreInput.value = '';
+		}
+	});
 
-    // Soumission du formulaire
-    document.getElementById('coffre-form').addEventListener('submit', (e) => {
-        e.preventDefault();
+// Soumission du formulaire
+document.getElementById('coffre-form').addEventListener('submit', (e) => {
+    e.preventDefault();
 
-        const client = document.getElementById('coffre-client').value.trim();
-        const type = document.getElementById('coffre-type').value;
-        const url = document.getElementById('coffre-url').value.trim();
-        const ip = document.getElementById('coffre-ip').value.trim();
-        const environnement = document.getElementById('coffre-env').value;
-        const identifiant = document.getElementById('coffre-identifiant').value.trim();
-        const motdepasse = document.getElementById('coffre-motdepasse').value.trim();
-        const notes = document.getElementById('coffre-notes').value.trim();
+    const client = document.getElementById('coffre-client').value.trim();
+    const type = document.getElementById('coffre-type').value;
+    const url = document.getElementById('coffre-url').value.trim();
+    const ip = document.getElementById('coffre-ip').value.trim();
+    const environnement = document.getElementById('coffre-env').value;
+    const identifiant = document.getElementById('coffre-identifiant').value.trim();
+    const motdepasse = document.getElementById('coffre-motdepasse').value.trim();
+    const notes = document.getElementById('coffre-notes').value.trim();
+    
+    // Récupérer la valeur du serveur
+    const serveurSelect = document.getElementById('coffre-serveur');
+    const serveurAutre = document.getElementById('coffre-serveur-autre');
+    let serveur = serveurSelect.value;
+    if (serveur === 'Autre') {
+        serveur = serveurAutre.value.trim() || 'Autre';
+    }
 
-        if (!client || !type || !identifiant || !motdepasse) {
-            showToast("Veuillez remplir tous les champs obligatoires.", "error");
-            return;
-        }
+    if (!client || !type || !identifiant || !motdepasse) {
+        showToast("Veuillez remplir tous les champs obligatoires.", "error");
+        return;
+    }
 
-        // Validation selon le type
-        if (type === 'environnement' && (!url || !environnement)) {
-            showToast("Pour un environnement, l'URL et l'environnement sont obligatoires.", "error");
-            return;
-        }
-        if (type === 'webdav' && !url) {
-            showToast("Pour Webdav, l'URL est obligatoire.", "error");
-            return;
-        }
-        if (type === 'rdp' && !ip) {
-            showToast("Pour RDP, l'adresse IP est obligatoire.", "error");
-            return;
-        }
+    // Validation selon le type
+    if (type === 'environnement' && (!url || !environnement)) {
+        showToast("Pour un environnement, l'URL et l'environnement sont obligatoires.", "error");
+        return;
+    }
+    if (type === 'webdav' && !url) {
+        showToast("Pour Webdav, l'URL est obligatoire.", "error");
+        return;
+    }
+    if (type === 'rdp' && (!ip || !serveur)) {
+        showToast("Pour RDP, l'adresse IP et le serveur sont obligatoires.", "error");
+        return;
+    }
 
-        const editId = document.getElementById('coffre-submit-btn').dataset.editId;
+    const editId = document.getElementById('coffre-submit-btn').dataset.editId;
 
-        // Chiffrer le mot de passe
-        const encrypted = encryptPassword(motdepasse);
+    // Chiffrer le mot de passe
+    const encrypted = encryptPassword(motdepasse);
 
-        if (editId) {
-            // Modification
-            const index = state.coffre.findIndex(e => e.id === editId);
-            if (index !== -1) {
-                state.coffre[index] = {
-                    ...state.coffre[index],
-                    client,
-                    type,
-                    url: type !== 'rdp' ? url : '',
-                    ip: type === 'rdp' ? ip : '',
-                    environnement: type === 'environnement' ? environnement : '',
-                    identifiant,
-                    motdepasse: encrypted,
-                    notes,
-                    updatedAt: new Date().toISOString()
-                };
-                showToast(`Entrée pour "${client}" mise à jour.`, "success");
-            }
-        } else {
-            // Nouvelle entrée
-            state.coffre.push({
-                id: 'coffre-' + Date.now(),
+    if (editId) {
+        // Modification
+        const index = state.coffre.findIndex(e => e.id === editId);
+        if (index !== -1) {
+            state.coffre[index] = {
+                ...state.coffre[index],
                 client,
                 type,
                 url: type !== 'rdp' ? url : '',
                 ip: type === 'rdp' ? ip : '',
                 environnement: type === 'environnement' ? environnement : '',
+                serveur: type === 'rdp' ? serveur : '',
                 identifiant,
                 motdepasse: encrypted,
                 notes,
-                createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
-            });
-            showToast(`Entrée pour "${client}" ajoutée.`, "success");
+            };
+            showToast(`Entrée pour "${client}" mise à jour.`, "success");
         }
+    } else {
+        // Nouvelle entrée
+        state.coffre.push({
+            id: 'coffre-' + Date.now(),
+            client,
+            type,
+            url: type !== 'rdp' ? url : '',
+            ip: type === 'rdp' ? ip : '',
+            environnement: type === 'environnement' ? environnement : '',
+            serveur: type === 'rdp' ? serveur : '',
+            identifiant,
+            motdepasse: encrypted,
+            notes,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        });
+        showToast(`Entrée pour "${client}" ajoutée.`, "success");
+    }
 
-        saveState();
-        renderCoffreTable();
-        populateCoffreClientsDatalist();
+    saveState();
+    renderCoffreTable();
+    populateCoffreClientsDatalist();
 
-        // Réinitialiser le formulaire
-        document.getElementById('coffre-form').reset();
-        document.getElementById('coffre-submit-btn').innerHTML = '<i data-lucide="save"></i> Ajouter';
-        document.getElementById('coffre-submit-btn').dataset.editId = '';
-        document.querySelector('#coffre-form h3').innerHTML = `
-            <i data-lucide="plus-circle" style="color: #F6C900;"></i>
-            Ajouter une entrée
-        `;
-        updateCoffreFields('');
-        document.getElementById('coffre-url').required = false;
-        document.getElementById('coffre-ip').required = false;
-        document.getElementById('coffre-env').required = false;
-    });
+    // Réinitialiser le formulaire
+    document.getElementById('coffre-form').reset();
+    document.getElementById('coffre-submit-btn').innerHTML = '<i data-lucide="save"></i> Ajouter';
+    document.getElementById('coffre-submit-btn').dataset.editId = '';
+    document.querySelector('#coffre-form h3').innerHTML = `
+        <i data-lucide="plus-circle" style="color: #F6C900;"></i>
+        Ajouter une entrée
+    `;
+    updateCoffreFields('');
+    document.getElementById('coffre-url').required = false;
+    document.getElementById('coffre-ip').required = false;
+    document.getElementById('coffre-env').required = false;
+    document.getElementById('coffre-serveur').required = false;
+    document.getElementById('coffre-serveur-autre').style.display = 'none';
+});
 
     // Export des données du coffre-fort
     document.getElementById('coffre-export-btn').addEventListener('click', () => {
