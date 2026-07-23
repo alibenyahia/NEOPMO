@@ -2407,5 +2407,62 @@ p + .passation-table {
     .no-print {
         display: none !important;
     }
+
+	.printable-passation-sheet,
+    .printable-passation-sheet * {
+        visibility: visible;
+    }
+
+    .printable-passation-sheet {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    .printable-passation-sheet .card {
+        background: #ffffff !important;
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
+        color: #1a1a1a !important;
+        page-break-inside: avoid;
+    }
+
+    .printable-passation-sheet .passation-table th,
+    .printable-passation-sheet .passation-table td {
+        border-color: #ccc !important;
+        color: #1a1a1a !important;
+        background: #ffffff !important;
+    }
+
+    .printable-passation-sheet .passation-field,
+    .printable-passation-sheet .passation-textarea {
+        border-color: #ccc !important;
+        color: #1a1a1a !important;
+        background: #ffffff !important;
+    }
+
+    .printable-passation-sheet .passation-section-title {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .printable-passation-sheet .passation-print-header-text h2,
+    .printable-passation-sheet .passation-subtitle,
+    .printable-passation-sheet h4 {
+        color: #1a1a1a !important;
+    }
+
+    .printable-passation-sheet .passation-label-inline,
+    .printable-passation-sheet .passation-optional-hint,
+    .printable-passation-sheet .passation-signature-caption {
+        color: #555 !important;
+    }
+
+    .no-print {
+        display: none !important;
+    }
 }
 
