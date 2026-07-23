@@ -129,6 +129,10 @@
 			<button class="tab-btn" id="tab-btn-passation-csm" data-tab="tab-passation-csm">
                 <i data-lucide="clipboard-check"></i> Passation CP/CSM
             </button>
+			<!-- Dans la section <nav class="tabs-nav">, ajouter après le bouton passation-csm -->
+			<button class="tab-btn" id="tab-btn-coffre" data-tab="tab-coffre">
+				<i data-lucide="key-round"></i> Coffre fort
+			</button>
         </nav>
 
         <!-- CONTENU 1: TABLEAU DE BORD (DASHBOARD) -->
@@ -1161,6 +1165,152 @@
             </div>
         </section>
     </div>
+	
+	<!-- CONTENU: COFFRE FORT (GESTION DES ACCÈS) -->
+		<div class="tab-content" id="tab-coffre" style="display: none;">
+			<section class="main-section" aria-label="Coffre fort - Gestion des accès">
+
+				<!-- Bandeau d'information -->
+				<div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid #F6C900;">
+					<div style="display: flex; align-items: center; gap: 1rem;">
+						<i data-lucide="shield" style="color: #F6C900; width: 32px; height: 32px;"></i>
+						<div>
+							<h3 style="font-size: 1.05rem; font-weight: 700;">Coffre fort des accès</h3>
+							<p style="color: var(--text-muted); font-size: 0.85rem;">
+								Gestionnaire des mots de passe des accès aux plateformes des clients ou internes
+							</p>
+						</div>
+					</div>
+				</div>
+
+				<!-- Formulaire d'ajout -->
+				<div class="card" style="margin-bottom: 1.5rem;">
+					<h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+						<i data-lucide="plus-circle" style="color: #F6C900;"></i>
+						Ajouter une entrée
+					</h3>
+					<form id="coffre-form">
+						<div class="form-grid">
+							<div class="form-group">
+								<label for="coffre-client">Client *</label>
+								<input type="text" id="coffre-client" required placeholder="Ex: Société Générale" list="coffre-clients-datalist">
+								<datalist id="coffre-clients-datalist"></datalist>
+							</div>
+
+							<div class="form-group">
+								<label for="coffre-type">Type *</label>
+								<select id="coffre-type" required>
+									<option value="">Sélectionner un type...</option>
+									<option value="environnement">Environnement</option>
+									<option value="webdav">Webdav</option>
+									<option value="rdp">RDP</option>
+								</select>
+							</div>
+
+							<!-- Champs dynamiques selon le type -->
+							<div class="form-group form-col-span-2" id="coffre-url-container" style="display: none;">
+								<label for="coffre-url">URL *</label>
+								<input type="url" id="coffre-url" placeholder="https://exemple.com">
+							</div>
+
+							<div class="form-group form-col-span-2" id="coffre-ip-container" style="display: none;">
+								<label for="coffre-ip">Adresse IP *</label>
+								<input type="text" id="coffre-ip" placeholder="192.168.1.100">
+							</div>
+
+							<div class="form-group" id="coffre-env-container" style="display: none;">
+								<label for="coffre-env">Environnement *</label>
+								<select id="coffre-env">
+									<option value="">Sélectionner...</option>
+									<option value="Production">Production</option>
+									<option value="PréProduction">PréProduction</option>
+									<option value="Test">Test</option>
+									<option value="Formation">Formation</option>
+								</select>
+							</div>
+
+							<div class="form-group">
+								<label for="coffre-identifiant">Identifiant *</label>
+								<input type="text" id="coffre-identifiant" required placeholder="Nom d'utilisateur">
+							</div>
+
+							<div class="form-group">
+								<label for="coffre-motdepasse">Mot de passe *</label>
+								<div style="display: flex; gap: 0.5rem; align-items: center;">
+									<input type="password" id="coffre-motdepasse" required placeholder="Mot de passe" style="flex: 1;">
+									<button type="button" class="btn btn-secondary btn-icon-only" id="coffre-toggle-password" title="Afficher/Masquer">
+										<i data-lucide="eye"></i>
+									</button>
+									<button type="button" class="btn btn-secondary btn-icon-only" id="coffre-generate-password" title="Générer un mot de passe sécurisé">
+										<i data-lucide="wand-2"></i>
+									</button>
+								</div>
+							</div>
+
+							<div class="form-group form-col-span-2">
+								<label for="coffre-notes">Notes (optionnel)</label>
+								<textarea id="coffre-notes" placeholder="Informations complémentaires..."></textarea>
+							</div>
+						</div>
+
+						<div style="display: flex; justify-content: flex-end; margin-top: 1.5rem; gap: 0.75rem;">
+							<button type="reset" class="btn btn-secondary" id="coffre-cancel-btn">Annuler</button>
+							<button type="submit" class="btn btn-primary" id="coffre-submit-btn">
+								<i data-lucide="save"></i> Ajouter
+							</button>
+						</div>
+					</form>
+				</div>
+
+				<!-- Liste des entrées -->
+				<div class="card" style="padding: 0; overflow: hidden;">
+					<div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+						<h3 style="font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+							<i data-lucide="key" style="color: #F6C900;"></i>
+							Entrées enregistrées
+							<span id="coffre-count" style="font-size: 0.8rem; font-weight: 400; color: var(--text-muted);"></span>
+						</h3>
+						<div style="display: flex; gap: 0.75rem; align-items: center;">
+							<div class="input-wrapper" style="max-width: 200px;">
+								<i data-lucide="search"></i>
+								<input type="text" id="coffre-search" placeholder="Rechercher...">
+							</div>
+							<button class="btn btn-secondary" id="coffre-export-btn" title="Exporter les accès (chiffrés)">
+								<i data-lucide="download"></i>
+							</button>
+							<button class="btn btn-secondary" id="coffre-import-btn" title="Importer des accès (chiffrés)">
+								<i data-lucide="upload"></i>
+							</button>
+							<input type="file" id="coffre-import-input" accept=".json" style="display: none;">
+						</div>
+					</div>
+
+					<div class="table-container">
+						<table class="projects-table coffre-table" id="coffre-table">
+							<thead>
+								<tr>
+									<th>Client</th>
+									<th>Type</th>
+									<th>Environnement / Cible</th>
+									<th>Identifiant</th>
+									<th style="width: 120px;">Mot de passe</th>
+									<th style="text-align: right;">Actions</th>
+								</tr>
+							</thead>
+							<tbody id="coffre-table-body">
+								<!-- Rempli dynamiquement -->
+							</tbody>
+						</table>
+					</div>
+
+					<div class="empty-state" id="coffre-empty-state" style="display: none;">
+						<i data-lucide="safe"></i>
+						<h3>Aucune entrée dans le coffre-fort</h3>
+						<p>Ajoutez vos premiers accès client via le formulaire ci-dessus.</p>
+					</div>
+				</div>
+			</section>
+		</div>
 
     <!-- MODAL 1: Infos Générales du Projet (Création/Édition) -->
     <div class="modal-overlay" id="project-modal">

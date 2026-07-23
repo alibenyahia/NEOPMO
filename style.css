@@ -2464,5 +2464,60 @@ p + .passation-table {
     .no-print {
         display: none !important;
     }
+	
+		/* --- COFFRE FORT : GESTION DES ACCÈS --- */
+	.coffre-password-display {
+		font-family: 'Courier New', monospace;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		color: var(--text-muted);
+		min-width: 80px;
+	}
+
+	.coffre-table td {
+		vertical-align: middle;
+	}
+
+	.coffre-table .badge-meteo {
+		background: var(--primary-glow);
+		color: var(--primary);
+		border-color: rgba(99, 102, 241, 0.2);
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+	}
+
+	.coffre-table .badge-meteo i {
+		width: 14px;
+		height: 14px;
+	}
+
+	#coffre-form .form-group input[type="password"] {
+		font-family: 'Courier New', monospace;
+		letter-spacing: 0.05em;
+	}
+
+	#coffre-generate-password i {
+		color: #F6C900;
+	}
+
+	.coffre-table tr:hover td {
+		background: rgba(255, 255, 255, 0.02);
+	}
+
+	body.light-theme .coffre-table tr:hover td {
+		background: rgba(0, 0, 0, 0.01);
+	}
+
+	/* Animation pour le formulaire */
+	#coffre-form .form-group {
+		transition: all 0.3s ease;
+	}
+
+	#coffre-url-container,
+	#coffre-ip-container,
+	#coffre-env-container {
+		transition: all 0.3s ease;
+	}
 }
 

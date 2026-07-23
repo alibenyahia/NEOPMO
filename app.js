@@ -18,7 +18,8 @@ let state = {
     tickets: [],
     ticketsLastImport: null,
     passation: null,
-    passationCsm: null
+    passationCsm: null,
+    coffre: []  // <-- AJOUT pour le coffre-fort
 };
 
 // Selected project in Editor Split-View
@@ -348,6 +349,9 @@ function normalizeStateShape() {
     }
     if (!Array.isArray(state.tickets)) {
         state.tickets = [];
+    }
+    if (!Array.isArray(state.coffre)) {
+        state.coffre = [];
     }
     if (typeof state.ticketsLastImport === 'undefined') {
         state.ticketsLastImport = null;
@@ -1515,7 +1519,7 @@ function parseTicketsXlsFile(file) {
                 });
 
                 if (Object.keys(headerFieldMap).length === 0) {
-                    reject(new Error("Aucune colonne reconnue dans le fichier. Colonnes attendues : Equipe, ID, Sujet, Type, Statut, Priorité, Assigné à, Créé le, Date Echéance Souhaitée, Auteur."));
+                    reject(new Error("Aucune colonne reconnue dans le fichier. Colonnes attendues : Equipe, ID, Sujet, Type, Statut, Priorité, Assigné à, Créé le, Date Échéance Souhaitée, Auteur."));
                     return;
                 }
 
@@ -2187,6 +2191,527 @@ const passationCpCsmController = createPassationController({
     confirmMessage: "Voulez-vous vraiment réinitialiser la fiche de passation CP/CSM ? Toutes les informations saisies (y compris les signatures) seront effacées pour permettre une nouvelle saisie."
 });
 
+// --- COFFRE FORT : GESTION SÉCURISÉE DES ACCÈS ---
+
+// Chiffrement simple (Base64) - À remplacer par une vraie solution de chiffrement
+// pour une utilisation professionnelle (ex: CryptoJS AES)
+function encryptPassword(password) {
+    // Chiffrement simple : encodage Base64 (NIVEAU DE SÉCURITÉ FAIBLE)
+    // À utiliser uniquement pour démonstration. En production, utilisez une
+    // bibliothèque de chiffrement comme CryptoJS avec une clé dérivée.
+    return btoa(password);
+}
+
+function decryptPassword(encrypted) {
+    try {
+        return atob(encrypted);
+    } catch (e) {
+        return encrypted;
+    }
+}
+
+// État du coffre-fort
+function getCoffreState() {
+    if (!state.coffre) {
+        state.coffre = [];
+    }
+    return state.coffre;
+}
+
+// Génère un mot de passe sécurisé
+function generateSecurePassword(length = 16) {
+    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=';
+    let password = '';
+    const array = new Uint8Array(length);
+    crypto.getRandomValues(array);
+    for (let i = 0; i < length; i++) {
+        password += charset[array[i] % charset.length];
+    }
+    return password;
+}
+
+// Rendu du tableau des entrées du coffre-fort
+function renderCoffreTable() {
+    const entries = getCoffreState();
+    const searchTerm = (document.getElementById('coffre-search')?.value || '').toLowerCase().trim();
+
+    // Mise à jour du compteur
+    const countEl = document.getElementById('coffre-count');
+    if (countEl) {
+        countEl.textContent = `${entries.length} entrée${entries.length > 1 ? 's' : ''}`;
+    }
+
+    // Filtrage
+    const filtered = searchTerm
+        ? entries.filter(e =>
+            e.client?.toLowerCase().includes(searchTerm) ||
+            e.identifiant?.toLowerCase().includes(searchTerm) ||
+            e.type?.toLowerCase().includes(searchTerm) ||
+            e.url?.toLowerCase().includes(searchTerm) ||
+            e.ip?.toLowerCase().includes(searchTerm) ||
+            e.environnement?.toLowerCase().includes(searchTerm)
+        )
+        : entries;
+
+    const tbody = document.getElementById('coffre-table-body');
+    const emptyState = document.getElementById('coffre-empty-state');
+    const table = document.getElementById('coffre-table');
+
+    if (!tbody) return;
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '';
+        if (emptyState) emptyState.style.display = 'flex';
+        if (table) table.style.display = 'none';
+        return;
+    }
+
+    if (emptyState) emptyState.style.display = 'none';
+    if (table) table.style.display = 'table';
+
+    tbody.innerHTML = filtered.map((entry, index) => {
+        // Affichage du type et de la cible
+        let targetDisplay = '-';
+        if (entry.type === 'environnement') {
+            targetDisplay = entry.environnement || '-';
+        } else if (entry.type === 'webdav') {
+            targetDisplay = entry.url || '-';
+        } else if (entry.type === 'rdp') {
+            targetDisplay = entry.ip || '-';
+        }
+
+        // Affichage du mot de passe masqué
+        const passwordDisplay = entry.motdepasse ? '••••••••' : '-';
+
+        // Icône selon le type
+        let typeIcon = 'key';
+        if (entry.type === 'environnement') typeIcon = 'server';
+        else if (entry.type === 'webdav') typeIcon = 'folder';
+        else if (entry.type === 'rdp') typeIcon = 'monitor';
+
+        return `
+            <tr data-id="${entry.id || index}">
+                <td><strong>${entry.client || '-'}</strong></td>
+                <td><span class="badge badge-meteo" style="text-transform: capitalize;"><i data-lucide="${typeIcon}" style="width: 14px; height: 14px;"></i> ${entry.type || '-'}</span></td>
+                <td>${targetDisplay}</td>
+                <td>${entry.identifiant || '-'}</td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span class="coffre-password-display">${passwordDisplay}</span>
+                        <button class="btn btn-secondary btn-icon-only coffre-show-pwd-btn" data-id="${entry.id || index}" style="height: 28px; width: 28px;" title="Afficher le mot de passe">
+                            <i data-lucide="eye" style="width: 14px; height: 14px;"></i>
+                        </button>
+                        <button class="btn btn-secondary btn-icon-only coffre-copy-pwd-btn" data-id="${entry.id || index}" style="height: 28px; width: 28px;" title="Copier le mot de passe">
+                            <i data-lucide="copy" style="width: 14px; height: 14px;"></i>
+                        </button>
+                    </div>
+                </td>
+                <td style="text-align: right;">
+                    <button class="btn btn-secondary btn-icon-only coffre-edit-btn" data-id="${entry.id || index}" title="Modifier">
+                        <i data-lucide="edit-3"></i>
+                    </button>
+                    <button class="btn btn-secondary btn-icon-only coffre-delete-btn" data-id="${entry.id || index}" title="Supprimer" style="color: var(--weather-danger); border-color: rgba(239, 68, 68, 0.2);">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    // Mise à jour des icônes
+    refreshIcons();
+
+    // Attacher les événements aux boutons
+    document.querySelectorAll('.coffre-show-pwd-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.id;
+            showCoffrePassword(id);
+        });
+    });
+
+    document.querySelectorAll('.coffre-copy-pwd-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.id;
+            copyCoffrePassword(id);
+        });
+    });
+
+    document.querySelectorAll('.coffre-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.id;
+            editCoffreEntry(id);
+        });
+    });
+
+    document.querySelectorAll('.coffre-delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.id;
+            deleteCoffreEntry(id);
+        });
+    });
+}
+
+// Affiche le mot de passe en clair (popup temporaire)
+function showCoffrePassword(id) {
+    const entries = getCoffreState();
+    const entry = entries.find(e => e.id === id);
+    if (!entry) {
+        showToast("Entrée non trouvée.", "error");
+        return;
+    }
+
+    const decrypted = decryptPassword(entry.motdepasse || '');
+    if (!decrypted) {
+        showToast("Mot de passe non défini.", "error");
+        return;
+    }
+
+    alert(`Mot de passe pour ${entry.client} (${entry.identifiant}) :\n\n${decrypted}`);
+}
+
+// Copie le mot de passe dans le presse-papiers
+async function copyCoffrePassword(id) {
+    const entries = getCoffreState();
+    const entry = entries.find(e => e.id === id);
+    if (!entry) {
+        showToast("Entrée non trouvée.", "error");
+        return;
+    }
+
+    const decrypted = decryptPassword(entry.motdepasse || '');
+    if (!decrypted) {
+        showToast("Mot de passe non défini.", "error");
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(decrypted);
+        showToast("Mot de passe copié dans le presse-papiers !", "success");
+    } catch (err) {
+        // Fallback
+        const textarea = document.createElement('textarea');
+        textarea.value = decrypted;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast("Mot de passe copié dans le presse-papiers !", "success");
+    }
+}
+
+// Supprime une entrée du coffre-fort
+function deleteCoffreEntry(id) {
+    const entries = getCoffreState();
+    const entry = entries.find(e => e.id === id);
+    if (!entry) {
+        showToast("Entrée non trouvée.", "error");
+        return;
+    }
+
+    const confirmed = confirm(`Supprimer l'entrée pour "${entry.client}" (${entry.identifiant}) ?`);
+    if (!confirmed) return;
+
+    state.coffre = state.coffre.filter(e => e.id !== id);
+    saveState();
+    renderCoffreTable();
+    populateCoffreClientsDatalist();
+    showToast("Entrée supprimée.", "info");
+}
+
+// Édite une entrée existante (pré-remplit le formulaire)
+function editCoffreEntry(id) {
+    const entries = getCoffreState();
+    const entry = entries.find(e => e.id === id);
+    if (!entry) {
+        showToast("Entrée non trouvée.", "error");
+        return;
+    }
+
+    // Pré-remplir le formulaire
+    document.getElementById('coffre-client').value = entry.client || '';
+    document.getElementById('coffre-type').value = entry.type || '';
+    document.getElementById('coffre-url').value = entry.url || '';
+    document.getElementById('coffre-ip').value = entry.ip || '';
+    document.getElementById('coffre-env').value = entry.environnement || '';
+    document.getElementById('coffre-identifiant').value = entry.identifiant || '';
+    document.getElementById('coffre-motdepasse').value = decryptPassword(entry.motdepasse || '');
+    document.getElementById('coffre-notes').value = entry.notes || '';
+
+    // Mettre à jour les champs dynamiques
+    updateCoffreFields(entry.type || '');
+
+    // Changer le bouton en "Modifier"
+    const submitBtn = document.getElementById('coffre-submit-btn');
+    submitBtn.innerHTML = '<i data-lucide="save"></i> Modifier';
+    submitBtn.dataset.editId = id;
+
+    // Changer le titre
+    document.querySelector('#coffre-form h3').innerHTML = `
+        <i data-lucide="edit-3" style="color: #F6C900;"></i>
+        Modifier l'entrée
+    `;
+
+    // Faire défiler jusqu'au formulaire
+    document.getElementById('coffre-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+// Met à jour l'affichage des champs dynamiques selon le type sélectionné
+function updateCoffreFields(type) {
+    const urlContainer = document.getElementById('coffre-url-container');
+    const ipContainer = document.getElementById('coffre-ip-container');
+    const envContainer = document.getElementById('coffre-env-container');
+
+    // Cacher tous
+    if (urlContainer) urlContainer.style.display = 'none';
+    if (ipContainer) ipContainer.style.display = 'none';
+    if (envContainer) envContainer.style.display = 'none';
+
+    // Afficher selon le type
+    if (type === 'environnement') {
+        if (urlContainer) urlContainer.style.display = 'block';
+        if (envContainer) envContainer.style.display = 'block';
+        document.getElementById('coffre-url').required = true;
+        document.getElementById('coffre-env').required = true;
+        document.getElementById('coffre-ip').required = false;
+    } else if (type === 'webdav') {
+        if (urlContainer) urlContainer.style.display = 'block';
+        document.getElementById('coffre-url').required = true;
+        document.getElementById('coffre-env').required = false;
+        document.getElementById('coffre-ip').required = false;
+    } else if (type === 'rdp') {
+        if (ipContainer) ipContainer.style.display = 'block';
+        document.getElementById('coffre-ip').required = true;
+        document.getElementById('coffre-url').required = false;
+        document.getElementById('coffre-env').required = false;
+    } else {
+        document.getElementById('coffre-url').required = false;
+        document.getElementById('coffre-ip').required = false;
+        document.getElementById('coffre-env').required = false;
+    }
+}
+
+// Remplit la datalist des clients avec les clients existants
+function populateCoffreClientsDatalist() {
+    const entries = getCoffreState();
+    const datalist = document.getElementById('coffre-clients-datalist');
+    if (!datalist) return;
+
+    const clients = [...new Set(entries.map(e => e.client).filter(Boolean))].sort();
+    datalist.innerHTML = clients.map(c => `<option value="${c}"></option>`).join('');
+}
+
+// Configuration des événements du coffre-fort
+function setupCoffreListeners() {
+    // Génération de mot de passe
+    document.getElementById('coffre-generate-password').addEventListener('click', () => {
+        const password = generateSecurePassword(16);
+        document.getElementById('coffre-motdepasse').value = password;
+        showToast("Mot de passe sécurisé généré !", "success");
+    });
+
+    // Affichage/Masquage du mot de passe
+    document.getElementById('coffre-toggle-password').addEventListener('click', () => {
+        const input = document.getElementById('coffre-motdepasse');
+        const icon = document.querySelector('#coffre-toggle-password i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.setAttribute('data-lucide', 'eye-off');
+        } else {
+            input.type = 'password';
+            icon.setAttribute('data-lucide', 'eye');
+        }
+        refreshIcons();
+    });
+
+    // Changement de type -> mise à jour des champs dynamiques
+    document.getElementById('coffre-type').addEventListener('change', (e) => {
+        updateCoffreFields(e.target.value);
+    });
+
+    // Recherche
+    document.getElementById('coffre-search').addEventListener('input', renderCoffreTable);
+
+    // Bouton annuler / reset
+    document.getElementById('coffre-cancel-btn').addEventListener('click', () => {
+        document.getElementById('coffre-form').reset();
+        document.getElementById('coffre-submit-btn').innerHTML = '<i data-lucide="save"></i> Ajouter';
+        document.getElementById('coffre-submit-btn').dataset.editId = '';
+        document.querySelector('#coffre-form h3').innerHTML = `
+            <i data-lucide="plus-circle" style="color: #F6C900;"></i>
+            Ajouter une entrée
+        `;
+        updateCoffreFields('');
+        document.getElementById('coffre-url').required = false;
+        document.getElementById('coffre-ip').required = false;
+        document.getElementById('coffre-env').required = false;
+    });
+
+    // Soumission du formulaire
+    document.getElementById('coffre-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const client = document.getElementById('coffre-client').value.trim();
+        const type = document.getElementById('coffre-type').value;
+        const url = document.getElementById('coffre-url').value.trim();
+        const ip = document.getElementById('coffre-ip').value.trim();
+        const environnement = document.getElementById('coffre-env').value;
+        const identifiant = document.getElementById('coffre-identifiant').value.trim();
+        const motdepasse = document.getElementById('coffre-motdepasse').value.trim();
+        const notes = document.getElementById('coffre-notes').value.trim();
+
+        if (!client || !type || !identifiant || !motdepasse) {
+            showToast("Veuillez remplir tous les champs obligatoires.", "error");
+            return;
+        }
+
+        // Validation selon le type
+        if (type === 'environnement' && (!url || !environnement)) {
+            showToast("Pour un environnement, l'URL et l'environnement sont obligatoires.", "error");
+            return;
+        }
+        if (type === 'webdav' && !url) {
+            showToast("Pour Webdav, l'URL est obligatoire.", "error");
+            return;
+        }
+        if (type === 'rdp' && !ip) {
+            showToast("Pour RDP, l'adresse IP est obligatoire.", "error");
+            return;
+        }
+
+        const editId = document.getElementById('coffre-submit-btn').dataset.editId;
+
+        // Chiffrer le mot de passe
+        const encrypted = encryptPassword(motdepasse);
+
+        if (editId) {
+            // Modification
+            const index = state.coffre.findIndex(e => e.id === editId);
+            if (index !== -1) {
+                state.coffre[index] = {
+                    ...state.coffre[index],
+                    client,
+                    type,
+                    url: type !== 'rdp' ? url : '',
+                    ip: type === 'rdp' ? ip : '',
+                    environnement: type === 'environnement' ? environnement : '',
+                    identifiant,
+                    motdepasse: encrypted,
+                    notes,
+                    updatedAt: new Date().toISOString()
+                };
+                showToast(`Entrée pour "${client}" mise à jour.`, "success");
+            }
+        } else {
+            // Nouvelle entrée
+            state.coffre.push({
+                id: 'coffre-' + Date.now(),
+                client,
+                type,
+                url: type !== 'rdp' ? url : '',
+                ip: type === 'rdp' ? ip : '',
+                environnement: type === 'environnement' ? environnement : '',
+                identifiant,
+                motdepasse: encrypted,
+                notes,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            });
+            showToast(`Entrée pour "${client}" ajoutée.`, "success");
+        }
+
+        saveState();
+        renderCoffreTable();
+        populateCoffreClientsDatalist();
+
+        // Réinitialiser le formulaire
+        document.getElementById('coffre-form').reset();
+        document.getElementById('coffre-submit-btn').innerHTML = '<i data-lucide="save"></i> Ajouter';
+        document.getElementById('coffre-submit-btn').dataset.editId = '';
+        document.querySelector('#coffre-form h3').innerHTML = `
+            <i data-lucide="plus-circle" style="color: #F6C900;"></i>
+            Ajouter une entrée
+        `;
+        updateCoffreFields('');
+        document.getElementById('coffre-url').required = false;
+        document.getElementById('coffre-ip').required = false;
+        document.getElementById('coffre-env').required = false;
+    });
+
+    // Export des données du coffre-fort
+    document.getElementById('coffre-export-btn').addEventListener('click', () => {
+        const entries = getCoffreState();
+        if (entries.length === 0) {
+            showToast("Aucune entrée à exporter.", "info");
+            return;
+        }
+
+        const data = {
+            version: '1.0',
+            exportedAt: new Date().toISOString(),
+            entries: entries
+        };
+
+        const jsonStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `coffre-fort_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 0);
+
+        showToast("Coffre-fort exporté avec succès.", "success");
+    });
+
+    // Import des données du coffre-fort
+    document.getElementById('coffre-import-btn').addEventListener('click', () => {
+        document.getElementById('coffre-import-input').click();
+    });
+
+    document.getElementById('coffre-import-input').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const data = JSON.parse(evt.target.result);
+                if (data && data.entries && Array.isArray(data.entries)) {
+                    // Vérifier si on remplace ou fusionne
+                    const replace = confirm(
+                        `Le fichier contient ${data.entries.length} entrée(s).\n` +
+                        `Voulez-vous remplacer toutes les entrées actuelles (${getCoffreState().length}) ?\n` +
+                        `Cliquez sur "Annuler" pour fusionner.`
+                    );
+
+                    if (replace) {
+                        state.coffre = data.entries;
+                    } else {
+                        state.coffre = [...state.coffre, ...data.entries];
+                    }
+
+                    saveState();
+                    renderCoffreTable();
+                    populateCoffreClientsDatalist();
+                    showToast(`${data.entries.length} entrée(s) importée(s) avec succès.`, "success");
+                } else {
+                    showToast("Format de fichier invalide.", "error");
+                }
+            } catch (err) {
+                showToast("Erreur lors de la lecture du fichier.", "error");
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    });
+}
+
 // --- TAB NAV SYSTEM ---
 
 function initTabSystem() {
@@ -2221,6 +2746,9 @@ function initTabSystem() {
                 passationCmCpController.render();
             } else if (targetId === 'tab-passation-csm') {
                 passationCpCsmController.render();
+            } else if (targetId === 'tab-coffre') {
+                renderCoffreTable();
+                populateCoffreClientsDatalist();
             }
         });
     });
@@ -3296,6 +3824,9 @@ function setupEventListeners() {
     els.billingFilterMonth.addEventListener('change', renderBillingChart);
     els.billingFilterClient.addEventListener('change', renderBillingChart);
     els.billingFilterPm.addEventListener('change', renderBillingChart);
+
+    // --- COFFRE FORT : Listeners spécifiques ---
+    setupCoffreListeners();
 }
 
 // --- AUTHENTIFICATION (SUPABASE AUTH) ---
@@ -3388,6 +3919,11 @@ async function bootApp() {
     passationCmCpController.render();
     passationCpCsmController.setupListeners();
     passationCpCsmController.render();
+
+    // Coffre fort : initialisation
+    setupCoffreListeners();
+    renderCoffreTable();
+    populateCoffreClientsDatalist();
 
     refreshIcons();
     hideLoadingOverlay();
