@@ -2549,4 +2549,69 @@ p + .passation-table {
 		box-shadow: 0 0 0 3px var(--primary-glow);
 	}
 }
+/* --- TEMPLATES : GESTION DES DOCUMENTS --- */
+.templates-table td {
+    vertical-align: middle;
+    font-size: 0.85rem;
+}
+
+.templates-table .badge-status {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.6rem;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+#templates-form-container {
+    transition: all 0.3s ease;
+}
+
+#templates-file-info {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.templates-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+body.light-theme .templates-table tr:hover td {
+    background: rgba(0, 0, 0, 0.01);
+}
+
+.templates-table .btn-icon-only {
+    width: 32px;
+    height: 32px;
+    font-size: 0;
+}
+
+.templates-table .btn-icon-only i {
+    width: 16px;
+    height: 16px;
+}
+
+/* Animation d'apparition du formulaire */
+#templates-form-container {
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Style pour les icônes de fichier dans la table */
+.templates-table td:first-child i {
+    flex-shrink: 0;
+}
 

@@ -130,9 +130,11 @@
 			<button class="tab-btn" id="tab-btn-passation-csm" data-tab="tab-passation-csm">
                 <i data-lucide="clipboard-check"></i> Passation CP/CSM
             </button>
-			<!-- Dans la section <nav class="tabs-nav">, ajouter après le bouton passation-csm -->
 			<button class="tab-btn" id="tab-btn-coffre" data-tab="tab-coffre">
 				<i data-lucide="key-round"></i> Coffre fort
+			</button>
+			<button class="tab-btn" id="tab-btn-templates" data-tab="tab-templates">
+				<i data-lucide="file-text"></i> Templates
 			</button>
         </nav>
 
@@ -1326,6 +1328,166 @@
 				</div>
 			</section>
 		</div>
+
+	<!-- CONTENU: TEMPLATES (GESTION DES DOCUMENTS) -->
+	<div class="tab-content" id="tab-templates" style="display: none;">
+		<section class="main-section" aria-label="Gestion des templates et documents">
+
+			<!-- Bandeau d'information -->
+			<div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid #F6C900;">
+				<div style="display: flex; align-items: center; gap: 1rem;">
+					<i data-lucide="folder-open" style="color: #F6C900; width: 32px; height: 32px;"></i>
+					<div>
+						<h3 style="font-size: 1.05rem; font-weight: 700;">Gestion des Templates & Documents</h3>
+						<p style="color: var(--text-muted); font-size: 0.85rem;">
+							Centralisez vos documents de projet : comptes-rendus, formations, livrables, etc.
+						</p>
+					</div>
+				</div>
+			</div>
+
+			<!-- Barre d'outils : Ajout, Filtres, Recherche -->
+			<div class="controls-bar">
+				<div class="search-filter-group">
+					<div class="input-wrapper">
+						<i data-lucide="search"></i>
+						<input type="text" id="templates-search" placeholder="Rechercher un document...">
+					</div>
+					<select class="filter-select" id="templates-filter-type">
+						<option value="">Tous les types</option>
+						<option value="PV">PV</option>
+						<option value="CR">CR</option>
+						<option value="Formation">Formation</option>
+						<option value="Liste">Liste</option>
+						<option value="KickOff">KickOff</option>
+						<option value="Recette">Recette</option>
+						<option value="Atelier">Atelier</option>
+						<option value="Autre">Autre</option>
+					</select>
+					<select class="filter-select" id="templates-filter-client">
+						<option value="">Tous les clients</option>
+					</select>
+				</div>
+				<div style="display: flex; gap: 0.75rem;">
+					<button class="btn btn-secondary" id="templates-clear-filters">
+						<i data-lucide="x"></i> Réinitialiser
+					</button>
+					<button class="btn btn-primary" id="templates-add-btn">
+						<i data-lucide="plus"></i> Ajouter un document
+					</button>
+				</div>
+			</div>
+
+			<!-- Formulaire d'ajout / modification (caché par défaut) -->
+			<div class="card" id="templates-form-container" style="display: none; margin-bottom: 1.5rem;">
+				<h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+					<i data-lucide="file-plus" style="color: #F6C900;"></i>
+					<span id="templates-form-title">Ajouter un document</span>
+				</h3>
+				<form id="templates-form">
+					<input type="hidden" id="templates-edit-id">
+					<div class="form-grid">
+						<div class="form-group">
+							<label for="templates-name">Nom du document *</label>
+							<input type="text" id="templates-name" required placeholder="Ex: PV Réunion KickOff">
+						</div>
+						<div class="form-group">
+							<label for="templates-type">Type *</label>
+							<select id="templates-type" required>
+								<option value="">Sélectionner...</option>
+								<option value="PV">PV (Procès-Verbal)</option>
+								<option value="CR">CR (Compte-Rendu)</option>
+								<option value="Formation">Formation</option>
+								<option value="Liste">Liste</option>
+								<option value="KickOff">KickOff</option>
+								<option value="Recette">Recette</option>
+								<option value="Atelier">Atelier</option>
+								<option value="Autre">Autre</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label for="templates-client">Client</label>
+							<input type="text" id="templates-client" placeholder="Ex: Société Générale" list="templates-clients-datalist">
+							<datalist id="templates-clients-datalist"></datalist>
+						</div>
+						<div class="form-group">
+							<label for="templates-project">Projet associé</label>
+							<select id="templates-project">
+								<option value="">Aucun</option>
+							</select>
+						</div>
+						<div class="form-group form-col-span-2">
+							<label for="templates-description">Description (optionnel)</label>
+							<textarea id="templates-description" placeholder="Brève description du contenu du document..."></textarea>
+						</div>
+						<div class="form-group form-col-span-2">
+							<label for="templates-file">Fichier *</label>
+							<div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+								<input type="file" id="templates-file" accept=".doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx,.txt,.md,.odt,.ods">
+								<span id="templates-file-info" style="font-size: 0.8rem; color: var(--text-muted);">Aucun fichier sélectionné</span>
+								<button type="button" class="btn btn-secondary btn-icon-only" id="templates-file-clear" title="Effacer la sélection">
+									<i data-lucide="x"></i>
+								</button>
+							</div>
+							<small style="color: var(--text-muted); font-size: 0.75rem;">Formats acceptés : Word, PDF, PowerPoint, Excel, TXT, Markdown, OpenDocument</small>
+						</div>
+					</div>
+					<div style="display: flex; justify-content: flex-end; margin-top: 1.5rem; gap: 0.75rem;">
+						<button type="button" class="btn btn-secondary" id="templates-form-cancel">Annuler</button>
+						<button type="submit" class="btn btn-primary" id="templates-form-submit">
+							<i data-lucide="save"></i> Enregistrer
+						</button>
+					</div>
+				</form>
+			</div>
+
+			<!-- Liste des documents -->
+			<div class="card" style="padding: 0; overflow: hidden;">
+				<div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+					<h3 style="font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+						<i data-lucide="files" style="color: #F6C900;"></i>
+						Documents
+						<span id="templates-count" style="font-size: 0.8rem; font-weight: 400; color: var(--text-muted);"></span>
+					</h3>
+					<div style="display: flex; gap: 0.75rem; align-items: center;">
+						<button class="btn btn-secondary" id="templates-export-btn" title="Exporter la liste des documents">
+							<i data-lucide="download"></i>
+						</button>
+						<button class="btn btn-secondary" id="templates-import-btn" title="Importer une liste de documents">
+							<i data-lucide="upload"></i>
+						</button>
+						<input type="file" id="templates-import-input" accept=".json" style="display: none;">
+					</div>
+				</div>
+
+				<div class="table-container">
+					<table class="projects-table templates-table" id="templates-table">
+						<thead>
+							<tr>
+								<th style="width: 30px;">#</th>
+								<th>Nom</th>
+								<th>Type</th>
+								<th>Client</th>
+								<th>Projet</th>
+								<th>Taille</th>
+								<th>Ajouté le</th>
+								<th style="text-align: right;">Actions</th>
+							</tr>
+						</thead>
+						<tbody id="templates-table-body">
+							<!-- Rempli dynamiquement -->
+						</tbody>
+					</table>
+				</div>
+
+				<div class="empty-state" id="templates-empty-state" style="display: none;">
+					<i data-lucide="file-text"></i>
+					<h3>Aucun document</h3>
+					<p>Ajoutez vos premiers documents en cliquant sur "Ajouter un document".</p>
+				</div>
+			</div>
+		</section>
+	</div>
 
     <!-- MODAL 1: Infos Générales du Projet (Création/Édition) -->
     <div class="modal-overlay" id="project-modal">
