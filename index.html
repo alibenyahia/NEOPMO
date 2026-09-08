@@ -15,6 +15,12 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Supabase (base de données partagée) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- html2canvas : capture du diagramme de Gantt en image pour les exports PDF / PPTX -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <!-- jsPDF : génération du planning au format PDF -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <!-- PptxGenJS : génération du planning au format PowerPoint (PPTX) -->
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 </head>
 <body>
     <!-- Écran de connexion : bloque l'accès à l'application tant que l'utilisateur n'est pas authentifié -->
@@ -499,6 +505,54 @@
                                 <span>Total planifié : <strong id="billing-total-amount">0</strong></span>
                                 <span>Total facturé / payé : <strong id="billing-total-invoiced">0</strong></span>
                                 <span>Avancement facturation : <strong id="billing-total-percent">0%</strong></span>
+                            </div>
+                        </div>
+
+                        <!-- Planning du Projet : Phases, Sous-phases, Étapes + Diagramme de Gantt -->
+                        <div class="card planning-section" style="margin-top: 1.5rem;">
+                            <div class="editor-form-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                                <h3 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                                    <i data-lucide="calendar-range" style="color: #F6C900"></i>
+                                    Planning du Projet
+                                </h3>
+                                <div class="planning-toolbar-actions" id="planning-toolbar-actions" style="display: none;">
+                                    <button type="button" class="btn btn-secondary" id="planning-add-phase-btn">
+                                        <i data-lucide="plus"></i> Ajouter une phase
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" id="planning-export-pdf-btn" title="Télécharger le planning en PDF">
+                                        <i data-lucide="file-down"></i> PDF
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" id="planning-export-pptx-btn" title="Télécharger le planning en PPTX">
+                                        <i data-lucide="presentation"></i> PPTX
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- État vide : aucun planning encore créé pour ce projet -->
+                            <div class="empty-state" id="planning-empty-state" style="padding: 2.5rem 1rem;">
+                                <i data-lucide="calendar-range"></i>
+                                <h3>Aucun planning défini</h3>
+                                <p>Créez le planning de ce projet : phases, sous-phases (si besoin) et étapes avec leurs dates de début et de fin, puis visualisez le diagramme de Gantt correspondant.</p>
+                                <button type="button" class="btn btn-primary" id="planning-empty-add-phase-btn">
+                                    <i data-lucide="plus"></i> Créer le planning
+                                </button>
+                            </div>
+
+                            <!-- Contenu du planning : Gantt + liste éditable des phases -->
+                            <div id="planning-content" style="display: none;">
+                                <div class="planning-gantt-scroll">
+                                    <div class="planning-gantt-wrapper" id="planning-gantt-wrapper">
+                                        <!-- Rempli dynamiquement en JS -->
+                                    </div>
+                                </div>
+                                <div class="planning-legend">
+                                    <span class="planning-legend-item"><span class="planning-legend-swatch planning-legend-phase"></span> Phase</span>
+                                    <span class="planning-legend-item"><span class="planning-legend-swatch planning-legend-subphase"></span> Sous-phase</span>
+                                    <span class="planning-legend-item"><span class="planning-legend-swatch planning-legend-step"></span> Étape</span>
+                                </div>
+                                <div class="planning-phases-list" id="planning-phases-list">
+                                    <!-- Rempli dynamiquement en JS -->
+                                </div>
                             </div>
                         </div>
 

@@ -1377,6 +1377,385 @@ body.light-theme .timeline-month-grid-line {
     text-overflow: ellipsis;
 }
 
+/* --- PLANNING PROJET (SAISIE & HISTORIQUE) : PHASES / SOUS-PHASES / ÉTAPES + GANTT --- */
+.planning-toolbar-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* Liste hiérarchique éditable */
+.planning-phases-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.planning-phase-block {
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.015);
+    overflow: hidden;
+}
+
+body.light-theme .planning-phase-block {
+    background: rgba(0, 0, 0, 0.012);
+}
+
+.planning-phase-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    background: rgba(10, 110, 137, 0.08);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.planning-phase-header-main {
+    flex: 1 1 220px;
+    min-width: 180px;
+}
+
+.planning-phase-header-dates {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.planning-phase-header-dates .planning-date-sep {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.planning-phase-header-actions {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.planning-field {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    outline: none;
+    transition: var(--transition-smooth);
+}
+
+body.light-theme .planning-field {
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.planning-field:hover {
+    border-color: var(--text-muted);
+}
+
+.planning-field:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-glow);
+}
+
+.planning-phase-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    width: 100%;
+    min-width: 160px;
+}
+
+.planning-date-input {
+    min-width: 145px;
+}
+
+.planning-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem;
+}
+
+.planning-items-empty-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 0.25rem 0.1rem;
+}
+
+.planning-item-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.01);
+}
+
+body.light-theme .planning-item-row {
+    background: rgba(0, 0, 0, 0.008);
+}
+
+.planning-item-icon {
+    color: var(--text-muted);
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.planning-item-name {
+    flex: 1 1 160px;
+    min-width: 140px;
+}
+
+.planning-item-row.planning-item-subphase-row {
+    background: rgba(99, 102, 241, 0.05);
+    border-color: rgba(99, 102, 241, 0.25);
+}
+
+.planning-item-row.planning-item-subphase-row .planning-item-name {
+    font-weight: 700;
+}
+
+.planning-item-actions {
+    display: flex;
+    gap: 0.35rem;
+    margin-left: auto;
+}
+
+.planning-subphase-block {
+    border-left: 3px solid var(--primary);
+    padding-left: 0.75rem;
+    margin-left: 0.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.planning-items-list-nested {
+    padding: 0 0 0 1.5rem;
+    margin-top: 0.1rem;
+}
+
+.planning-delete-btn {
+    color: var(--weather-danger);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+@media (max-width: 700px) {
+    .planning-phase-header-actions {
+        margin-left: 0;
+    }
+}
+
+/* Diagramme de Gantt du planning projet */
+.planning-gantt-scroll {
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+
+.planning-gantt-wrapper {
+    display: flex;
+    flex-direction: column;
+    min-width: 680px;
+}
+
+.planning-gantt-header {
+    display: flex;
+    align-items: flex-end;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0.4rem;
+    margin-bottom: 0.6rem;
+}
+
+.planning-gantt-label-spacer {
+    width: 260px;
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.planning-gantt-header-track {
+    flex: 1;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(34px, 1fr);
+}
+
+.planning-gantt-header-cell {
+    text-align: center;
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    padding: 0 0.15rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    border-right: 1px dashed rgba(255, 255, 255, 0.06);
+}
+
+body.light-theme .planning-gantt-header-cell {
+    border-right: 1px dashed rgba(0, 0, 0, 0.08);
+}
+
+.planning-gantt-header-cell:last-child {
+    border-right: none;
+}
+
+.planning-gantt-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.planning-gantt-row {
+    display: flex;
+    align-items: center;
+    min-height: 30px;
+}
+
+.planning-gantt-row-label {
+    width: 260px;
+    flex-shrink: 0;
+    padding-right: 1rem;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.planning-gantt-row-label.level-phase {
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.planning-gantt-row-label.level-subphase {
+    padding-left: 1.1rem;
+    color: var(--text-main);
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.planning-gantt-row-label.level-step {
+    padding-left: 2rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
+.planning-gantt-row-track {
+    flex: 1;
+    position: relative;
+    height: 26px;
+    background: rgba(255, 255, 255, 0.01);
+    border-radius: 6px;
+}
+
+body.light-theme .planning-gantt-row-track {
+    background: rgba(0, 0, 0, 0.01);
+}
+
+.planning-gantt-row-gridlines {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(34px, 1fr);
+    pointer-events: none;
+}
+
+.planning-gantt-row-gridlines span {
+    border-right: 1px dashed rgba(255, 255, 255, 0.04);
+}
+
+body.light-theme .planning-gantt-row-gridlines span {
+    border-right: 1px dashed rgba(0, 0, 0, 0.05);
+}
+
+.planning-gantt-row-gridlines span:last-child {
+    border-right: none;
+}
+
+.planning-gantt-bar {
+    position: absolute;
+    top: 4px;
+    height: 18px;
+    border-radius: 9999px;
+    color: white;
+    font-size: 0.66rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    padding: 0 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    min-width: 14px;
+    cursor: default;
+}
+
+.planning-gantt-bar.level-phase {
+    background: linear-gradient(90deg, #0A6E89, #2D8FAC);
+    height: 20px;
+    top: 3px;
+}
+
+.planning-gantt-bar.level-subphase {
+    background: #6366f1;
+}
+
+.planning-gantt-bar.level-step {
+    background: #F6C900;
+    color: #5B5B5B;
+    height: 14px;
+    top: 6px;
+}
+
+.planning-legend {
+    display: flex;
+    gap: 1.25rem;
+    margin: 0.9rem 0 0.25rem;
+    flex-wrap: wrap;
+}
+
+.planning-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.planning-legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.planning-legend-phase {
+    background: linear-gradient(90deg, #0A6E89, #2D8FAC);
+}
+
+.planning-legend-subphase {
+    background: #6366f1;
+}
+
+.planning-legend-step {
+    background: #F6C900;
+}
+
 /* --- FORMATION: CALENDRIER INTERACTIF DES SESSIONS --- */
 .training-calendar-card {
     padding: 1.5rem;

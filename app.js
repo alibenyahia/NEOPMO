@@ -114,7 +114,18 @@ const els = {
     billingTotalAmount: document.getElementById('billing-total-amount'),
     billingTotalInvoiced: document.getElementById('billing-total-invoiced'),
     billingTotalPercent: document.getElementById('billing-total-percent'),
-    
+
+    // Planning (Phases / Sous-phases / Étapes + Gantt) management (Editor Split-View)
+    planningToolbarActions: document.getElementById('planning-toolbar-actions'),
+    planningAddPhaseBtn: document.getElementById('planning-add-phase-btn'),
+    planningExportPdfBtn: document.getElementById('planning-export-pdf-btn'),
+    planningExportPptxBtn: document.getElementById('planning-export-pptx-btn'),
+    planningEmptyState: document.getElementById('planning-empty-state'),
+    planningEmptyAddPhaseBtn: document.getElementById('planning-empty-add-phase-btn'),
+    planningContent: document.getElementById('planning-content'),
+    planningGanttWrapper: document.getElementById('planning-gantt-wrapper'),
+    planningPhasesList: document.getElementById('planning-phases-list'),
+
     // --- MODALS ---
     projectModal: document.getElementById('project-modal'),
     projectForm: document.getElementById('project-form'),
@@ -361,6 +372,7 @@ function normalizeStateShape() {
             if (!Array.isArray(p.billing)) {
                 p.billing = [];
             }
+            ensureProjectPlanning(p);
         });
     } else {
         state.projects = [];
@@ -2915,6 +2927,9 @@ function renderEditorWorkspace() {
 
     // Render billing (facturation) milestones table
     renderBillingTable(p);
+
+    // Render planning (phases / sous-phases / étapes + diagramme de Gantt)
+    renderProjectPlanning(p);
 }
 
 function loadEditorWeeklyData(project, week) {
@@ -3192,6 +3207,759 @@ function renderEditorTimeline(project) {
     refreshIcons();
 }
 
+// --- PLANNING PROJET : PHASES / SOUS-PHASES / ÉTAPES + DIAGRAMME DE GANTT (ÉDITEUR) ---
+
+// Generates a reasonably unique id for planning items (phase / sous-phase / étape)
+function generatePlanningId(prefix) {
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+// Ensures project.planning has the expected shape. Called defensively everywhere a project's
+// planning is read or written, so it stays backward-compatible with projects saved before
+// this feature existed (fresh localStorage, Supabase row, or an older exported JSON file).
+function ensureProjectPlanning(project) {
+    if (!project.planning || typeof project.planning !== 'object') {
+        project.planning = { phases: [] };
+    }
+    if (!Array.isArray(project.planning.phases)) {
+        project.planning.phases = [];
+    }
+    project.planning.phases.forEach(phase => {
+        if (!Array.isArray(phase.steps)) phase.steps = [];
+        if (!Array.isArray(phase.subPhases)) phase.subPhases = [];
+        phase.subPhases.forEach(sub => {
+            if (!Array.isArray(sub.steps)) sub.steps = [];
+        });
+    });
+    return project.planning;
+}
+
+function addPlanningPhase(project) {
+    const planning = ensureProjectPlanning(project);
+    planning.phases.push({
+        id: generatePlanningId('phase'),
+        name: 'Nouvelle phase',
+        startDate: '',
+        endDate: '',
+        steps: [],
+        subPhases: []
+    });
+    saveState();
+    renderProjectPlanning(project);
+    showToast("Phase ajoutée au planning.");
+}
+
+function deletePlanningPhase(project, phaseId) {
+    const planning = ensureProjectPlanning(project);
+    const phase = planning.phases.find(p => p.id === phaseId);
+    if (!phase) return;
+
+    const confirmed = confirm(`Supprimer la phase "${phase.name || 'Sans nom'}" ainsi que toutes ses sous-phases et étapes ?`);
+    if (!confirmed) return;
+
+    planning.phases = planning.phases.filter(p => p.id !== phaseId);
+    saveState();
+    renderProjectPlanning(project);
+    showToast("Phase supprimée du planning.", "info");
+}
+
+function addPlanningSubPhase(project, phaseId) {
+    const planning = ensureProjectPlanning(project);
+    const phase = planning.phases.find(p => p.id === phaseId);
+    if (!phase) return;
+
+    phase.subPhases.push({
+        id: generatePlanningId('subphase'),
+        name: 'Nouvelle sous-phase',
+        startDate: '',
+        endDate: '',
+        steps: []
+    });
+    saveState();
+    renderProjectPlanning(project);
+    showToast("Sous-phase ajoutée.");
+}
+
+function deletePlanningSubPhase(project, phaseId, subPhaseId) {
+    const planning = ensureProjectPlanning(project);
+    const phase = planning.phases.find(p => p.id === phaseId);
+    if (!phase) return;
+    const sub = phase.subPhases.find(s => s.id === subPhaseId);
+    if (!sub) return;
+
+    const confirmed = confirm(`Supprimer la sous-phase "${sub.name || 'Sans nom'}" ainsi que ses étapes ?`);
+    if (!confirmed) return;
+
+    phase.subPhases = phase.subPhases.filter(s => s.id !== subPhaseId);
+    saveState();
+    renderProjectPlanning(project);
+    showToast("Sous-phase supprimée.", "info");
+}
+
+// Adds a step (étape). If subPhaseId is null/undefined, the step is attached directly
+// to the phase; otherwise it is attached to the given sub-phase.
+function addPlanningStep(project, phaseId, subPhaseId) {
+    const planning = ensureProjectPlanning(project);
+    const phase = planning.phases.find(p => p.id === phaseId);
+    if (!phase) return;
+
+    const target = subPhaseId ? phase.subPhases.find(s => s.id === subPhaseId) : phase;
+    if (!target) return;
+    if (!Array.isArray(target.steps)) target.steps = [];
+
+    target.steps.push({
+        id: generatePlanningId('step'),
+        name: 'Nouvelle étape',
+        startDate: '',
+        endDate: ''
+    });
+    saveState();
+    renderProjectPlanning(project);
+    showToast("Étape ajoutée.");
+}
+
+function deletePlanningStep(project, phaseId, subPhaseId, stepId) {
+    const planning = ensureProjectPlanning(project);
+    const phase = planning.phases.find(p => p.id === phaseId);
+    if (!phase) return;
+
+    const target = subPhaseId ? phase.subPhases.find(s => s.id === subPhaseId) : phase;
+    if (!target) return;
+    const step = (target.steps || []).find(s => s.id === stepId);
+    if (!step) return;
+
+    const confirmed = confirm(`Supprimer l'étape "${step.name || 'Sans nom'}" ?`);
+    if (!confirmed) return;
+
+    target.steps = target.steps.filter(s => s.id !== stepId);
+    saveState();
+    renderProjectPlanning(project);
+    showToast("Étape supprimée.", "info");
+}
+
+// Generic field update (name / startDate / endDate) for a phase, sub-phase or step, located
+// via optional ids ({ phaseId, subPhaseId, stepId }). Only re-renders the Gantt chart (not the
+// whole editable list) so the input the user is typing in never loses focus.
+function updatePlanningField(project, ids, field, value) {
+    const planning = ensureProjectPlanning(project);
+    const phase = planning.phases.find(p => p.id === ids.phaseId);
+    if (!phase) return;
+
+    let target = phase;
+    if (ids.subPhaseId) {
+        target = phase.subPhases.find(s => s.id === ids.subPhaseId);
+        if (!target) return;
+    }
+    if (ids.stepId) {
+        target = (target.steps || []).find(s => s.id === ids.stepId);
+        if (!target) return;
+    }
+
+    target[field] = value;
+    saveState();
+    renderProjectGantt(project);
+}
+
+// Builds one editable row (icon + name + start/end dates + action buttons) for a step or a
+// sub-phase header. `ids` = { phaseId, subPhaseId, stepId } (subPhaseId/stepId only where relevant).
+function createPlanningEditableRow(project, ids, item, options = {}) {
+    const row = document.createElement('div');
+    row.className = 'planning-item-row' + (options.isSubPhase ? ' planning-item-subphase-row' : '');
+
+    const icon = document.createElement('i');
+    icon.className = 'planning-item-icon';
+    icon.setAttribute('data-lucide', options.isSubPhase ? 'layers' : 'corner-down-right');
+    row.appendChild(icon);
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'planning-field planning-item-name';
+    nameInput.value = item.name || '';
+    nameInput.placeholder = options.isSubPhase ? 'Nom de la sous-phase' : "Nom de l'étape";
+    nameInput.addEventListener('change', () => updatePlanningField(project, ids, 'name', nameInput.value.trim()));
+    row.appendChild(nameInput);
+
+    const startInput = document.createElement('input');
+    startInput.type = 'date';
+    startInput.className = 'planning-field planning-date-input';
+    startInput.value = item.startDate || '';
+    startInput.addEventListener('change', () => updatePlanningField(project, ids, 'startDate', startInput.value));
+    row.appendChild(startInput);
+
+    const sep = document.createElement('span');
+    sep.className = 'planning-date-sep';
+    sep.textContent = '→';
+    row.appendChild(sep);
+
+    const endInput = document.createElement('input');
+    endInput.type = 'date';
+    endInput.className = 'planning-field planning-date-input';
+    endInput.value = item.endDate || '';
+    endInput.addEventListener('change', () => updatePlanningField(project, ids, 'endDate', endInput.value));
+    row.appendChild(endInput);
+
+    const actions = document.createElement('div');
+    actions.className = 'planning-item-actions';
+
+    if (options.isSubPhase) {
+        const addStepBtn = document.createElement('button');
+        addStepBtn.type = 'button';
+        addStepBtn.className = 'btn btn-secondary btn-icon-only';
+        addStepBtn.title = 'Ajouter une étape à cette sous-phase';
+        addStepBtn.innerHTML = '<i data-lucide="plus"></i>';
+        addStepBtn.addEventListener('click', () => addPlanningStep(project, ids.phaseId, ids.subPhaseId));
+        actions.appendChild(addStepBtn);
+    }
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'btn btn-secondary btn-icon-only planning-delete-btn';
+    deleteBtn.title = options.isSubPhase ? 'Supprimer la sous-phase' : "Supprimer l'étape";
+    deleteBtn.innerHTML = '<i data-lucide="trash-2"></i>';
+    deleteBtn.addEventListener('click', () => {
+        if (options.isSubPhase) {
+            deletePlanningSubPhase(project, ids.phaseId, ids.subPhaseId);
+        } else {
+            deletePlanningStep(project, ids.phaseId, ids.subPhaseId || null, ids.stepId);
+        }
+    });
+    actions.appendChild(deleteBtn);
+
+    row.appendChild(actions);
+    return row;
+}
+
+// Renders the editable hierarchical list (phases > sous-phases > étapes) into #planning-phases-list
+function renderPlanningPhasesList(project) {
+    const container = els.planningPhasesList;
+    if (!container) return;
+    container.innerHTML = '';
+
+    const planning = ensureProjectPlanning(project);
+
+    planning.phases.forEach(phase => {
+        const block = document.createElement('div');
+        block.className = 'planning-phase-block';
+
+        // --- En-tête de la phase ---
+        const header = document.createElement('div');
+        header.className = 'planning-phase-header';
+
+        const mainWrap = document.createElement('div');
+        mainWrap.className = 'planning-phase-header-main';
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'planning-field planning-phase-name';
+        nameInput.value = phase.name || '';
+        nameInput.placeholder = 'Nom de la phase';
+        nameInput.addEventListener('change', () => updatePlanningField(project, { phaseId: phase.id }, 'name', nameInput.value.trim()));
+        mainWrap.appendChild(nameInput);
+        header.appendChild(mainWrap);
+
+        const datesWrap = document.createElement('div');
+        datesWrap.className = 'planning-phase-header-dates';
+
+        const startInput = document.createElement('input');
+        startInput.type = 'date';
+        startInput.className = 'planning-field planning-date-input';
+        startInput.value = phase.startDate || '';
+        startInput.addEventListener('change', () => updatePlanningField(project, { phaseId: phase.id }, 'startDate', startInput.value));
+        datesWrap.appendChild(startInput);
+
+        const sep = document.createElement('span');
+        sep.className = 'planning-date-sep';
+        sep.textContent = '→';
+        datesWrap.appendChild(sep);
+
+        const endInput = document.createElement('input');
+        endInput.type = 'date';
+        endInput.className = 'planning-field planning-date-input';
+        endInput.value = phase.endDate || '';
+        endInput.addEventListener('change', () => updatePlanningField(project, { phaseId: phase.id }, 'endDate', endInput.value));
+        datesWrap.appendChild(endInput);
+
+        header.appendChild(datesWrap);
+
+        const actionsWrap = document.createElement('div');
+        actionsWrap.className = 'planning-phase-header-actions';
+
+        const addStepBtn = document.createElement('button');
+        addStepBtn.type = 'button';
+        addStepBtn.className = 'btn btn-secondary';
+        addStepBtn.innerHTML = '<i data-lucide="plus"></i> Étape';
+        addStepBtn.title = 'Ajouter une étape directement à cette phase';
+        addStepBtn.addEventListener('click', () => addPlanningStep(project, phase.id, null));
+        actionsWrap.appendChild(addStepBtn);
+
+        const addSubBtn = document.createElement('button');
+        addSubBtn.type = 'button';
+        addSubBtn.className = 'btn btn-secondary';
+        addSubBtn.innerHTML = '<i data-lucide="layers"></i> Sous-phase';
+        addSubBtn.title = 'Ajouter une sous-phase à cette phase';
+        addSubBtn.addEventListener('click', () => addPlanningSubPhase(project, phase.id));
+        actionsWrap.appendChild(addSubBtn);
+
+        const deletePhaseBtn = document.createElement('button');
+        deletePhaseBtn.type = 'button';
+        deletePhaseBtn.className = 'btn btn-secondary btn-icon-only planning-delete-btn';
+        deletePhaseBtn.title = 'Supprimer cette phase';
+        deletePhaseBtn.innerHTML = '<i data-lucide="trash-2"></i>';
+        deletePhaseBtn.addEventListener('click', () => deletePlanningPhase(project, phase.id));
+        actionsWrap.appendChild(deletePhaseBtn);
+
+        header.appendChild(actionsWrap);
+        block.appendChild(header);
+
+        // --- Contenu de la phase : étapes directes + sous-phases ---
+        const itemsList = document.createElement('div');
+        itemsList.className = 'planning-items-list';
+
+        if ((phase.steps || []).length === 0 && (phase.subPhases || []).length === 0) {
+            const hint = document.createElement('div');
+            hint.className = 'planning-items-empty-hint';
+            hint.textContent = "Aucune étape ni sous-phase pour le moment. Utilisez les boutons ci-dessus pour en ajouter.";
+            itemsList.appendChild(hint);
+        }
+
+        (phase.steps || []).forEach(step => {
+            itemsList.appendChild(createPlanningEditableRow(project, { phaseId: phase.id, stepId: step.id }, step, { isSubPhase: false }));
+        });
+
+        (phase.subPhases || []).forEach(sub => {
+            const subBlock = document.createElement('div');
+            subBlock.className = 'planning-subphase-block';
+
+            subBlock.appendChild(createPlanningEditableRow(project, { phaseId: phase.id, subPhaseId: sub.id }, sub, { isSubPhase: true }));
+
+            const subStepsList = document.createElement('div');
+            subStepsList.className = 'planning-items-list-nested';
+
+            if ((sub.steps || []).length === 0) {
+                const hint = document.createElement('div');
+                hint.className = 'planning-items-empty-hint';
+                hint.textContent = 'Aucune étape dans cette sous-phase.';
+                subStepsList.appendChild(hint);
+            }
+
+            (sub.steps || []).forEach(step => {
+                subStepsList.appendChild(createPlanningEditableRow(project, { phaseId: phase.id, subPhaseId: sub.id, stepId: step.id }, step, { isSubPhase: false }));
+            });
+
+            subBlock.appendChild(subStepsList);
+            itemsList.appendChild(subBlock);
+        });
+
+        block.appendChild(itemsList);
+        container.appendChild(block);
+    });
+
+    refreshIcons();
+}
+
+// --- DIAGRAMME DE GANTT DU PLANNING ---
+
+// Flattens a project's planning hierarchy into an ordered list of Gantt rows:
+// { level: 'phase'|'subphase'|'step', label, startDate, endDate }.
+// Order: phase, then its direct étapes, then each sous-phase followed by its own étapes.
+function flattenPlanningForGantt(planning) {
+    const rows = [];
+    planning.phases.forEach(phase => {
+        rows.push({ level: 'phase', label: phase.name || 'Phase sans nom', startDate: phase.startDate, endDate: phase.endDate });
+        (phase.steps || []).forEach(step => {
+            rows.push({ level: 'step', label: step.name || 'Étape sans nom', startDate: step.startDate, endDate: step.endDate });
+        });
+        (phase.subPhases || []).forEach(sub => {
+            rows.push({ level: 'subphase', label: sub.name || 'Sous-phase sans nom', startDate: sub.startDate, endDate: sub.endDate });
+            (sub.steps || []).forEach(step => {
+                rows.push({ level: 'step', label: step.name || 'Étape sans nom', startDate: step.startDate, endDate: step.endDate });
+            });
+        });
+    });
+    return rows;
+}
+
+// Computes the overall [min start, max end] date bounds across every dated row of the planning.
+// Returns null if no row has both a valid start and end date yet.
+function computePlanningAxisBounds(rows) {
+    let min = null, max = null;
+    rows.forEach(r => {
+        if (!r.startDate || !r.endDate) return;
+        const s = new Date(r.startDate);
+        const e = new Date(r.endDate);
+        if (isNaN(s.getTime()) || isNaN(e.getTime())) return;
+        if (!min || s < min) min = s;
+        if (!max || e > max) max = e;
+    });
+    if (!min || !max) return null;
+    return { start: min, end: max };
+}
+
+// Decides the Gantt time granularity automatically from the overall planning duration:
+// short plannings get daily columns, medium ones weekly columns, long ones monthly columns.
+function pickPlanningGranularity(totalDays) {
+    if (totalDays <= 45) return 'day';
+    if (totalDays <= 210) return 'week';
+    return 'month';
+}
+
+const PLANNING_MONTH_LABELS_SHORT = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+
+// Builds the list of header columns { label, start, end } for the chosen granularity,
+// spanning from axis.start to axis.end (rounded outward to whole days/weeks/months).
+function buildPlanningColumns(axis, granularity) {
+    const columns = [];
+
+    if (granularity === 'day') {
+        let cursor = new Date(axis.start.getFullYear(), axis.start.getMonth(), axis.start.getDate());
+        while (cursor <= axis.end) {
+            const colEnd = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+            columns.push({ label: cursor.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }), start: new Date(cursor), end: colEnd });
+            cursor = colEnd;
+        }
+    } else if (granularity === 'week') {
+        let cursor = new Date(axis.start.getFullYear(), axis.start.getMonth(), axis.start.getDate());
+        const isoDay = cursor.getDay() || 7;
+        cursor.setDate(cursor.getDate() - (isoDay - 1)); // aligne sur le lundi
+        while (cursor <= axis.end) {
+            const colEnd = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 7);
+            columns.push({ label: `S${getISOWeek(cursor).split('-W')[1]}`, start: new Date(cursor), end: colEnd });
+            cursor = colEnd;
+        }
+    } else {
+        let cursor = new Date(axis.start.getFullYear(), axis.start.getMonth(), 1);
+        while (cursor <= axis.end) {
+            const colEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+            columns.push({ label: `${PLANNING_MONTH_LABELS_SHORT[cursor.getMonth()]} ${cursor.getFullYear()}`, start: new Date(cursor), end: colEnd });
+            cursor = colEnd;
+        }
+    }
+
+    return columns;
+}
+
+// Computes { leftPct, widthPct } of an item's [start, end] relative to the given axis,
+// clamped to [0, 100], with a minimum visible width for very short / punctual items.
+function computePlanningBarPosition(startDateStr, endDateStr, axis) {
+    if (!startDateStr || !endDateStr) return null;
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+
+    const axisSpan = axis.end.getTime() - axis.start.getTime();
+    if (axisSpan <= 0) return { leftPct: 0, widthPct: 100 };
+
+    let leftPct = ((start.getTime() - axis.start.getTime()) / axisSpan) * 100;
+    let rightPct = ((end.getTime() - axis.start.getTime()) / axisSpan) * 100;
+
+    leftPct = Math.max(0, Math.min(100, leftPct));
+    rightPct = Math.max(0, Math.min(100, rightPct));
+
+    if (rightPct - leftPct < 1) {
+        rightPct = Math.min(100, leftPct + 1);
+    }
+
+    return { leftPct, widthPct: rightPct - leftPct };
+}
+
+// Renders the Gantt chart (time header + one row per phase/sous-phase/étape) into
+// #planning-gantt-wrapper for the given project.
+function renderProjectGantt(project) {
+    const wrapper = els.planningGanttWrapper;
+    if (!wrapper) return;
+    wrapper.innerHTML = '';
+
+    const planning = ensureProjectPlanning(project);
+    const rows = flattenPlanningForGantt(planning);
+    const axis = computePlanningAxisBounds(rows);
+
+    if (!axis || rows.length === 0) {
+        wrapper.innerHTML = `
+            <div style="padding: 1.25rem 0.25rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                Renseignez au moins une date de début et une date de fin (phase, sous-phase ou étape) pour afficher le diagramme de Gantt.
+            </div>
+        `;
+        return;
+    }
+
+    const totalDays = (axis.end.getTime() - axis.start.getTime()) / 86400000;
+    const granularity = pickPlanningGranularity(totalDays);
+    const columns = buildPlanningColumns(axis, granularity);
+    const columnsAxis = { start: columns[0].start, end: columns[columns.length - 1].end };
+
+    // --- En-tête (colonnes de temps) ---
+    const header = document.createElement('div');
+    header.className = 'planning-gantt-header';
+
+    const spacer = document.createElement('div');
+    spacer.className = 'planning-gantt-label-spacer';
+    spacer.textContent = 'Élément du planning';
+    header.appendChild(spacer);
+
+    const headerTrack = document.createElement('div');
+    headerTrack.className = 'planning-gantt-header-track';
+    headerTrack.style.gridTemplateColumns = `repeat(${columns.length}, minmax(34px, 1fr))`;
+    columns.forEach(col => {
+        const cell = document.createElement('div');
+        cell.className = 'planning-gantt-header-cell';
+        cell.textContent = col.label;
+        headerTrack.appendChild(cell);
+    });
+    header.appendChild(headerTrack);
+    wrapper.appendChild(header);
+
+    // --- Corps (une ligne par phase / sous-phase / étape) ---
+    const body = document.createElement('div');
+    body.className = 'planning-gantt-body';
+
+    rows.forEach(row => {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'planning-gantt-row';
+
+        const label = document.createElement('div');
+        label.className = `planning-gantt-row-label level-${row.level}`;
+        label.textContent = row.label;
+        label.title = row.label;
+        rowEl.appendChild(label);
+
+        const track = document.createElement('div');
+        track.className = 'planning-gantt-row-track';
+
+        const gridLines = document.createElement('div');
+        gridLines.className = 'planning-gantt-row-gridlines';
+        gridLines.style.gridTemplateColumns = `repeat(${columns.length}, minmax(34px, 1fr))`;
+        columns.forEach(() => gridLines.appendChild(document.createElement('span')));
+        track.appendChild(gridLines);
+
+        const pos = computePlanningBarPosition(row.startDate, row.endDate, columnsAxis);
+        if (pos) {
+            const bar = document.createElement('div');
+            bar.className = `planning-gantt-bar level-${row.level}`;
+            bar.style.left = `${pos.leftPct}%`;
+            bar.style.width = `${pos.widthPct}%`;
+            bar.title = `${row.label} : ${formatDateString(row.startDate)} → ${formatDateString(row.endDate)}`;
+            if (pos.widthPct > 6) {
+                bar.textContent = row.label;
+            }
+            track.appendChild(bar);
+        }
+
+        rowEl.appendChild(track);
+        body.appendChild(rowEl);
+    });
+
+    wrapper.appendChild(body);
+}
+
+// Top-level entry point for the Planning section of the Editor tab: shows the empty state or
+// the Gantt + editable list, and (re)wires the toolbar buttons for the currently selected project.
+function renderProjectPlanning(project) {
+    if (!els.planningEmptyState || !els.planningContent) return;
+
+    const planning = ensureProjectPlanning(project);
+    const hasContent = planning.phases.length > 0;
+
+    els.planningEmptyState.style.display = hasContent ? 'none' : 'flex';
+    els.planningContent.style.display = hasContent ? 'block' : 'none';
+    els.planningToolbarActions.style.display = hasContent ? 'flex' : 'none';
+
+    els.planningAddPhaseBtn.onclick = () => addPlanningPhase(project);
+    els.planningEmptyAddPhaseBtn.onclick = () => addPlanningPhase(project);
+    els.planningExportPdfBtn.onclick = () => exportPlanningToPdf(project);
+    els.planningExportPptxBtn.onclick = () => exportPlanningToPptx(project);
+
+    if (hasContent) {
+        renderPlanningPhasesList(project);
+        renderProjectGantt(project);
+    }
+
+    refreshIcons();
+}
+
+// --- EXPORT DU PLANNING (PDF / PPTX) ---
+
+// Removes characters that are problematic in downloaded file names.
+function sanitizePlanningFileName(str) {
+    return (str || 'planning').replace(/[^a-z0-9\-_]+/gi, '_').replace(/^_+|_+$/g, '') || 'planning';
+}
+
+// Common guard shared by both export functions: refuses to export an empty planning.
+function preparePlanningExport(project) {
+    const planning = ensureProjectPlanning(project);
+    if (!planning.phases.length) {
+        showToast("Créez au moins une phase avant d'exporter le planning.", "error");
+        return null;
+    }
+    return planning;
+}
+
+async function exportPlanningToPdf(project) {
+    const planning = preparePlanningExport(project);
+    if (!planning) return;
+
+    if (typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined') {
+        showToast("Export PDF indisponible (bibliothèque non chargée, vérifiez votre connexion).", "error");
+        return;
+    }
+
+    showToast("Génération du PDF en cours...", "info");
+
+    try {
+        const canvas = await html2canvas(els.planningGanttWrapper, { backgroundColor: '#ffffff', scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 30;
+
+        doc.setFontSize(16);
+        doc.setTextColor(20);
+        doc.text(`Planning du projet — ${project.name}`, margin, margin);
+        doc.setFontSize(10);
+        doc.setTextColor(120);
+        doc.text(`Client : ${project.client || '-'}   |   Chef de projet : ${project.pm || '-'}   |   Généré le ${formatDateString(new Date().toISOString())}`, margin, margin + 16);
+        doc.setTextColor(20);
+
+        const imgWidth = pageWidth - margin * 2;
+        const imgHeight = (canvas.height / canvas.width) * imgWidth;
+        const yPos = margin + 32;
+        const availableHeight = pageHeight - yPos - margin;
+
+        if (imgHeight > availableHeight) {
+            const scaledHeight = availableHeight;
+            const scaledWidth = (canvas.width / canvas.height) * scaledHeight;
+            doc.addImage(imgData, 'PNG', margin, yPos, scaledWidth, scaledHeight);
+        } else {
+            doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
+        }
+
+        // --- Détail texte des phases / sous-phases / étapes (page(s) suivante(s)) ---
+        doc.addPage();
+        doc.setFontSize(13);
+        doc.setTextColor(20);
+        doc.text(`Détail du planning — ${project.name}`, margin, margin);
+
+        let y = margin + 26;
+        doc.setFontSize(9.5);
+
+        const writeLine = (text, indent, bold) => {
+            if (y > pageHeight - margin) {
+                doc.addPage();
+                y = margin;
+            }
+            doc.setFont(undefined, bold ? 'bold' : 'normal');
+            doc.text(text, margin + indent, y);
+            y += 16;
+        };
+
+        planning.phases.forEach(phase => {
+            writeLine(`${phase.name || 'Phase sans nom'}   (${formatDateString(phase.startDate)} → ${formatDateString(phase.endDate)})`, 0, true);
+            (phase.steps || []).forEach(step => {
+                writeLine(`•  ${step.name || 'Étape sans nom'}   (${formatDateString(step.startDate)} → ${formatDateString(step.endDate)})`, 16, false);
+            });
+            (phase.subPhases || []).forEach(sub => {
+                writeLine(`—  ${sub.name || 'Sous-phase sans nom'}   (${formatDateString(sub.startDate)} → ${formatDateString(sub.endDate)})`, 16, true);
+                (sub.steps || []).forEach(step => {
+                    writeLine(`•  ${step.name || 'Étape sans nom'}   (${formatDateString(step.startDate)} → ${formatDateString(step.endDate)})`, 32, false);
+                });
+            });
+        });
+
+        doc.save(`Planning_${sanitizePlanningFileName(project.name)}.pdf`);
+        showToast("Planning exporté en PDF.");
+    } catch (err) {
+        console.error("Erreur lors de l'export PDF du planning :", err);
+        showToast("Erreur lors de la génération du PDF.", "error");
+    }
+}
+
+async function exportPlanningToPptx(project) {
+    const planning = preparePlanningExport(project);
+    if (!planning) return;
+
+    if (typeof PptxGenJS === 'undefined' || typeof html2canvas === 'undefined') {
+        showToast("Export PPTX indisponible (bibliothèque non chargée, vérifiez votre connexion).", "error");
+        return;
+    }
+
+    showToast("Génération du PowerPoint en cours...", "info");
+
+    try {
+        const canvas = await html2canvas(els.planningGanttWrapper, { backgroundColor: '#ffffff', scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+
+        const pptx = new PptxGenJS();
+        pptx.defineLayout({ name: 'NEOPMO_WIDE', width: 13.33, height: 7.5 });
+        pptx.layout = 'NEOPMO_WIDE';
+
+        // --- Diapositive 1 : page de garde ---
+        const slide1 = pptx.addSlide();
+        slide1.background = { color: '0A6E89' };
+        slide1.addText('Planning du Projet', { x: 0.6, y: 2.3, w: 12, h: 1, fontSize: 36, bold: true, color: 'FFFFFF', fontFace: 'Arial' });
+        slide1.addText(project.name, { x: 0.6, y: 3.2, w: 12, h: 0.7, fontSize: 24, color: 'F6C900', fontFace: 'Arial' });
+        slide1.addText(
+            `Client : ${project.client || '-'}\nChef de projet : ${project.pm || '-'}\nGénéré le ${formatDateString(new Date().toISOString())}`,
+            { x: 0.6, y: 4.1, w: 12, h: 1.2, fontSize: 14, color: 'FFFFFF', fontFace: 'Arial', lineSpacing: 22 }
+        );
+
+        // --- Diapositive 2 : diagramme de Gantt (image) ---
+        const slide2 = pptx.addSlide();
+        slide2.addText('Diagramme de Gantt', { x: 0.4, y: 0.25, w: 12, h: 0.6, fontSize: 22, bold: true, color: '0A6E89', fontFace: 'Arial' });
+        const imgRatio = canvas.height / canvas.width;
+        const imgW = 12.5;
+        const imgH = Math.min(6.3, imgW * imgRatio);
+        slide2.addImage({ data: imgData, x: (13.33 - imgW) / 2, y: 1, w: imgW, h: imgH });
+
+        // --- Diapositive(s) suivante(s) : tableau détaillé des phases / sous-phases / étapes ---
+        const headerRow = [
+            { text: 'Élément', options: { bold: true, fill: { color: '0A6E89' }, color: 'FFFFFF' } },
+            { text: 'Type', options: { bold: true, fill: { color: '0A6E89' }, color: 'FFFFFF' } },
+            { text: 'Début', options: { bold: true, fill: { color: '0A6E89' }, color: 'FFFFFF' } },
+            { text: 'Fin', options: { bold: true, fill: { color: '0A6E89' }, color: 'FFFFFF' } }
+        ];
+
+        const dataRows = [];
+        const addRow = (name, type, start, end, indent) => {
+            dataRows.push([
+                { text: `${'   '.repeat(indent)}${name}`, options: {} },
+                { text: type, options: {} },
+                { text: formatDateString(start), options: {} },
+                { text: formatDateString(end), options: {} }
+            ]);
+        };
+
+        planning.phases.forEach(phase => {
+            addRow(phase.name || 'Phase sans nom', 'Phase', phase.startDate, phase.endDate, 0);
+            (phase.steps || []).forEach(step => addRow(step.name || 'Étape sans nom', 'Étape', step.startDate, step.endDate, 1));
+            (phase.subPhases || []).forEach(sub => {
+                addRow(sub.name || 'Sous-phase sans nom', 'Sous-phase', sub.startDate, sub.endDate, 1);
+                (sub.steps || []).forEach(step => addRow(step.name || 'Étape sans nom', 'Étape', step.startDate, step.endDate, 2));
+            });
+        });
+
+        const CHUNK_SIZE = 16;
+        const chunkCount = Math.max(1, Math.ceil(dataRows.length / CHUNK_SIZE));
+        for (let i = 0; i < chunkCount; i++) {
+            const chunk = [headerRow, ...dataRows.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)];
+            const slide = pptx.addSlide();
+            slide.addText('Détail du Planning', { x: 0.4, y: 0.25, w: 12, h: 0.5, fontSize: 20, bold: true, color: '0A6E89', fontFace: 'Arial' });
+            slide.addTable(chunk, {
+                x: 0.4, y: 0.9, w: 12.5,
+                fontSize: 11,
+                border: { type: 'solid', color: 'DDDDDD', pt: 0.5 },
+                autoPage: false
+            });
+        }
+
+        await pptx.writeFile({ fileName: `Planning_${sanitizePlanningFileName(project.name)}.pptx` });
+        showToast("Planning exporté en PPTX.");
+    } catch (err) {
+        console.error("Erreur lors de l'export PPTX du planning :", err);
+        showToast("Erreur lors de la génération du PowerPoint.", "error");
+    }
+}
+
 // --- PROJECT INFOS MODAL TRIGGERS ---
 
 // Shows "Abonnement" for Cloud projects, "Licences" for On Prem projects
@@ -3311,6 +4079,75 @@ function loadDemoData() {
                     blockers: 'Le temps de réponse des rapports comptables dépasse de 30% le SLA défini.',
                     risks: 'Risque de décalage de la mise en production si l\'optimisation échoue.'
                 }
+            },
+            planning: {
+                phases: [
+                    {
+                        id: 'phase-demo-cadrage',
+                        name: 'Cadrage',
+                        startDate: '2026-01-15',
+                        endDate: '2026-02-28',
+                        subPhases: [],
+                        steps: [
+                            { id: 'step-demo-kickoff', name: 'Réunion de lancement (Kick-off)', startDate: '2026-01-15', endDate: '2026-01-20' },
+                            { id: 'step-demo-besoins', name: 'Recueil des besoins métiers', startDate: '2026-01-21', endDate: '2026-02-28' }
+                        ]
+                    },
+                    {
+                        id: 'phase-demo-conception',
+                        name: 'Conception',
+                        startDate: '2026-03-01',
+                        endDate: '2026-05-15',
+                        steps: [
+                            { id: 'step-demo-maquettes', name: 'Validation des maquettes fonctionnelles', startDate: '2026-04-20', endDate: '2026-05-15' }
+                        ],
+                        subPhases: [
+                            {
+                                id: 'subphase-demo-archi',
+                                name: 'Architecture technique',
+                                startDate: '2026-03-01',
+                                endDate: '2026-04-10',
+                                steps: [
+                                    { id: 'step-demo-archi-cible', name: 'Définition de l\'architecture cible', startDate: '2026-03-01', endDate: '2026-03-20' },
+                                    { id: 'step-demo-archi-revue', name: 'Revue de l\'architecture avec le client', startDate: '2026-03-21', endDate: '2026-04-10' }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        id: 'phase-demo-dev',
+                        name: 'Développement',
+                        startDate: '2026-05-16',
+                        endDate: '2026-09-30',
+                        subPhases: [],
+                        steps: [
+                            { id: 'step-demo-dev-migration', name: 'Migration des données de test', startDate: '2026-05-16', endDate: '2026-07-15' },
+                            { id: 'step-demo-dev-integration', name: 'Développement des interfaces d\'intégration', startDate: '2026-07-16', endDate: '2026-09-30' }
+                        ]
+                    },
+                    {
+                        id: 'phase-demo-recette',
+                        name: 'Tests & Recette',
+                        startDate: '2026-10-01',
+                        endDate: '2026-11-15',
+                        subPhases: [],
+                        steps: [
+                            { id: 'step-demo-tests-integration', name: 'Tests d\'intégration', startDate: '2026-10-01', endDate: '2026-10-25' },
+                            { id: 'step-demo-uat', name: 'Recette utilisateurs (UAT)', startDate: '2026-10-26', endDate: '2026-11-15' }
+                        ]
+                    },
+                    {
+                        id: 'phase-demo-deploiement',
+                        name: 'Déploiement & Mise en production',
+                        startDate: '2026-11-16',
+                        endDate: '2026-12-20',
+                        subPhases: [],
+                        steps: [
+                            { id: 'step-demo-bascule', name: 'Bascule en production', startDate: '2026-11-16', endDate: '2026-12-05' },
+                            { id: 'step-demo-hypercare', name: 'Hypercare post-démarrage', startDate: '2026-12-06', endDate: '2026-12-20' }
+                        ]
+                    }
+                ]
             }
         },
         {
@@ -3491,6 +4328,7 @@ function handleJsonImport(e) {
                     if (!Array.isArray(p.billing)) {
                         p.billing = [];
                     }
+                    ensureProjectPlanning(p);
                 });
                 if (imported.currentWeek) {
                     state.currentWeek = imported.currentWeek;
@@ -3680,7 +4518,8 @@ function setupEventListeners() {
                 hasDeadlineMarket,
                 contractualDate,
                 weeklyUpdates: {},
-                billing: []
+                billing: [],
+                planning: { phases: [] }
             };
             state.projects.push(newProj);
             // Select this new project in Editor
